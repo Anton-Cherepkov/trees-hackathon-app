@@ -3,8 +3,8 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
-// Add .wasm to the list of asset extensions
-config.resolver.assetExts.push('wasm');
+// Add .wasm and .onnx to the list of asset extensions
+config.resolver.assetExts.push('wasm', 'onnx');
 
 // Add .wasm to the list of source extensions
 config.resolver.sourceExts.push('wasm');

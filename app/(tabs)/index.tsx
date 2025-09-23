@@ -12,15 +12,60 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { treeDatabase, TreeRecord } from '@/database/treeDatabase';
 import { TreePine } from 'lucide-react-native';
+import { logONNXStatus } from '@/utils/onnxSetup';
+import * as ort from 'onnxruntime-react-native';
+import { Asset } from 'expo-asset';
+
+let yoloModel: ort.InferenceSession;
+
+// Export the model for use in other components
+export { yoloModel };
 
 export default function TreeListScreen() {
   const [trees, setTrees] = useState<TreeRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modelLoading, setModelLoading] = useState(false);
+  const [modelLoaded, setModelLoaded] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     initializeDatabase();
+    // Test ONNX Runtime availability
+    logONNXStatus();
+    // Load YOLO model
+    loadYOLOModel();
   }, []);
+
+  const loadYOLOModel = async () => {
+    setModelLoading(true);
+    try {
+      const assets = await Asset.loadAsync(require('@/assets/yolo11s.onnx'));
+      const modelUri = assets[0].localUri;
+      if (!modelUri) {
+        Alert.alert('Failed to get model URI', `${assets[0]}`);
+        return;
+      }
+      
+      // ONNX Runtime for React Native requires absolute file path
+      // Convert to file:// scheme if needed
+      const modelPath = modelUri.startsWith('file://') ? modelUri : `file://${modelUri}`;
+      
+      yoloModel = await ort.InferenceSession.create(modelPath);
+      setModelLoaded(true);
+      Alert.alert(
+        'YOLO Model Loaded Successfully',
+        `Input names: ${yoloModel.inputNames.join(', ')}\nOutput names: ${yoloModel.outputNames.join(', ')}`
+      );
+      console.log('YOLO model loaded successfully');
+      console.log('Input names:', yoloModel.inputNames);
+      console.log('Output names:', yoloModel.outputNames);
+    } catch (error) {
+      console.error('Failed to load YOLO model:', error);
+      Alert.alert('Failed to Load Model', `Error: ${error}`);
+    } finally {
+      setModelLoading(false);
+    }
+  };
 
   // Refresh data when screen comes into focus (e.g., after clearing data)
   useFocusEffect(
@@ -106,6 +151,11 @@ export default function TreeListScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Urban Trees</Text>
         <Text style={styles.subtitle}>{trees.length} trees recorded</Text>
+        <View style={styles.modelStatus}>
+          <Text style={styles.modelStatusText}>
+            YOLO Model: {modelLoading ? 'Loading...' : modelLoaded ? '✓ Loaded' : '✗ Not Loaded'}
+          </Text>
+        </View>
       </View>
 
       <FlatList
@@ -146,6 +196,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6b7280',
     marginTop: 4,
+  },
+  modelStatus: {
+    marginTop: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  modelStatusText: {
+    fontSize: 12,
+    color: '#374151',
+    fontWeight: '500',
   },
   listContainer: {
     padding: 16,
