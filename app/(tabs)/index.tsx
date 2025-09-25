@@ -39,7 +39,7 @@ export default function TreeListScreen() {
   const loadYOLOModel = async () => {
     setModelLoading(true);
     try {
-      const assets = await Asset.loadAsync(require('@/assets/yolo11s.onnx'));
+      const assets = await Asset.loadAsync(require('@/assets/best-yolov11s-tune-no-freeze-no-single-cls.onnx'));
       const modelUri = assets[0].localUri;
       if (!modelUri) {
         Alert.alert('Failed to get model URI', `${assets[0]}`);
