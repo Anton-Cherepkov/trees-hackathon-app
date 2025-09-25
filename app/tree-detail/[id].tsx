@@ -11,14 +11,15 @@ import {
   ScrollView,
   FlatList,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { treeDatabase, TreeRecord } from '@/database/treeDatabase';
 import { ArrowLeft, Save, Trash2, Camera, Image as ImageIcon, Wand as Wand2, Calendar } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
-import Svg, { Rect } from 'react-native-svg';
 import { classifyTreeImage, formatClassificationResult, extractTaxonName } from '@/utils/treeClassifier';
+import Svg, { Rect } from 'react-native-svg';
 
 const { width: screenWidth } = Dimensions.get('window');
 const imageDisplayWidth = screenWidth - 32;
@@ -27,10 +28,11 @@ export default function TreeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [tree, setTree] = useState<TreeRecord | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [generatingDescription, setGeneratingDescription] = useState(false);
   const [description, setDescription] = useState('');
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  const [actualImageSize, setActualImageSize] = useState({ width: 0, height: 0 });
+  const [zoomModalVisible, setZoomModalVisible] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -64,21 +66,6 @@ export default function TreeDetailScreen() {
     }
   };
 
-  const saveChanges = async () => {
-    if (!tree) return;
-
-    try {
-      setSaving(true);
-      await treeDatabase.updateTree(tree.id!, { description });
-      Alert.alert('Success', 'Changes saved successfully');
-      setTree({ ...tree, description });
-    } catch (error) {
-      Alert.alert('Error', 'Failed to save changes');
-      console.error('Save error:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const deleteTree = async () => {
     if (!tree) return;
@@ -251,21 +238,20 @@ export default function TreeDetailScreen() {
       // Classify the tree crop image
       const classificationResult = await classifyTreeImage(tree.cropPath);
       
-      // Extract taxon name and format the result as description text
+      // Extract taxon name only
       const taxonName = extractTaxonName(classificationResult);
-      const descriptionText = formatClassificationResult(classificationResult);
       
-      // Update the description in the UI
-      setDescription(descriptionText);
+      // Update the description in the UI (leave empty for now)
+      setDescription("");
       
-      // Update the tree record in the database with both description and taxon name
+      // Update the tree record in the database with only taxon name, description stays empty
       await treeDatabase.updateTree(tree.id!, { 
-        description: descriptionText,
+        description: "",
         taxonName: taxonName || undefined
       });
       
       // Update the local tree state
-      setTree({ ...tree, description: descriptionText, taxonName: taxonName || undefined });
+      setTree({ ...tree, description: "", taxonName: taxonName || undefined });
       
       console.log('Description generated and saved successfully');
       Alert.alert('Success', 'Tree description generated successfully!');
@@ -288,19 +274,52 @@ export default function TreeDetailScreen() {
   };
 
   const renderBoundingBox = () => {
-    if (!tree || !imageSize.width || !imageSize.height) return null;
+    if (!tree || !imageSize.width || !imageSize.height || !actualImageSize.width || !actualImageSize.height) return null;
+
+    // Calculate the actual image dimensions within the container
+    // The image uses resizeMode="contain" so it maintains aspect ratio
+    const containerWidth = imageSize.width;
+    const containerHeight = imageSize.height;
+    const originalImageWidth = actualImageSize.width;
+    const originalImageHeight = actualImageSize.height;
+    
+    // Calculate the actual displayed image dimensions within the container
+    const imageAspectRatio = originalImageWidth / originalImageHeight;
+    const containerAspectRatio = containerWidth / containerHeight;
+    
+    let displayedImageWidth, displayedImageHeight, offsetX, offsetY;
+    
+    if (imageAspectRatio > containerAspectRatio) {
+      // Image is wider than container - fit by width
+      displayedImageWidth = containerWidth;
+      displayedImageHeight = containerWidth / imageAspectRatio;
+      offsetX = 0;
+      offsetY = (containerHeight - displayedImageHeight) / 2;
+    } else {
+      // Image is taller than container - fit by height
+      displayedImageHeight = containerHeight;
+      displayedImageWidth = containerHeight * imageAspectRatio;
+      offsetX = (containerWidth - displayedImageWidth) / 2;
+      offsetY = 0;
+    }
+
+    // Convert relative coordinates to actual image coordinates
+    const x = tree.boundingBox.x * displayedImageWidth + offsetX;
+    const y = tree.boundingBox.y * displayedImageHeight + offsetY;
+    const width = tree.boundingBox.width * displayedImageWidth;
+    const height = tree.boundingBox.height * displayedImageHeight;
 
     return (
       <Svg
         style={StyleSheet.absoluteFillObject}
-        width={imageSize.width}
-        height={imageSize.height}
+        width={containerWidth}
+        height={containerHeight}
       >
         <Rect
-          x={tree.boundingBox.x * imageSize.width}
-          y={tree.boundingBox.y * imageSize.height}
-          width={tree.boundingBox.width * imageSize.width}
-          height={tree.boundingBox.height * imageSize.height}
+          x={x}
+          y={y}
+          width={width}
+          height={height}
           fill="none"
           stroke="#22c55e"
           strokeWidth={3}
@@ -348,7 +367,18 @@ export default function TreeDetailScreen() {
         >
           <ArrowLeft size={24} color="#374151" />
         </TouchableOpacity>
-        <Text style={styles.title}>Tree Details</Text>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.title}>Tree Details</Text>
+          <Text style={styles.headerDate}>
+            {new Date(tree.dateTaken).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </Text>
+        </View>
         <TouchableOpacity
           style={styles.deleteButton}
           onPress={deleteTree}
@@ -359,69 +389,28 @@ export default function TreeDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: tree.imageUri }}
-            style={styles.image}
-            onLayout={getImageLayout}
-            onError={(error) => {
-              console.log('Image load error in tree detail:', error);
-            }}
-            onLoad={() => {
-              console.log('Image loaded successfully in tree detail');
-            }}
-            resizeMode="contain"
-          />
-          {renderBoundingBox()}
-        </View>
-
-        <View style={styles.metadataContainer}>
-          <View style={styles.metadataItem}>
-            <Calendar size={20} color="#6b7280" />
-            <Text style={styles.metadataText}>
-              {new Date(tree.dateTaken).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </Text>
-          </View>
-          <View style={styles.taxonNameItem}>
-            <Text style={styles.taxonNameText}>
-              Taxon name: {tree.taxonName || 'unknown'}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.descriptionContainer}>
-          <Text style={styles.sectionTitle}>Description</Text>
-          <TextInput
-            style={styles.descriptionInput}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Add a description for this tree..."
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
           <TouchableOpacity
-            style={[
-              styles.generateButton,
-              generatingDescription && styles.generateButtonDisabled
-            ]}
-            onPress={generateDescription}
-            disabled={generatingDescription}
+            onPress={() => setZoomModalVisible(true)}
+            activeOpacity={0.9}
           >
-            <Wand2 size={20} color={generatingDescription ? "#9ca3af" : "#6b7280"} />
-            <Text style={[
-              styles.generateButtonText,
-              generatingDescription && styles.generateButtonTextDisabled
-            ]}>
-              {generatingDescription ? 'Generating...' : 'Generate Description'}
-            </Text>
+            <Image
+              source={{ uri: tree.imageUri }}
+              style={styles.image}
+              onLayout={getImageLayout}
+              onError={(error) => {
+                console.log('Image load error in tree detail:', error);
+              }}
+              onLoad={(event) => {
+                console.log('Image loaded successfully in tree detail');
+                const { width, height } = event.nativeEvent.source;
+                setActualImageSize({ width, height });
+              }}
+              resizeMode="contain"
+            />
+            {renderBoundingBox()}
           </TouchableOpacity>
         </View>
+
 
         <View style={styles.photosContainer}>
           <View style={styles.photosHeader}>
@@ -455,20 +444,96 @@ export default function TreeDetailScreen() {
           )}
         </View>
 
-        <TouchableOpacity
-          style={[
-            styles.saveButton,
-            saving && styles.saveButtonDisabled,
-          ]}
-          onPress={saveChanges}
-          disabled={saving}
-        >
-          <Save size={24} color="#ffffff" />
-          <Text style={styles.saveButtonText}>
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.descriptionContainer}>
+          <View style={styles.descriptionHeader}>
+            <Text style={styles.sectionTitle}>AI Analysis</Text>
+            <TouchableOpacity
+              style={[
+                styles.processAIButton,
+                generatingDescription && styles.processAIButtonDisabled
+              ]}
+              onPress={generateDescription}
+              disabled={generatingDescription}
+            >
+              <Wand2 size={20} color="#ffffff" />
+              <Text style={styles.processAIButtonText}>
+                {generatingDescription ? 'Processing...' : 'Process with AI'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.analysisTable}>
+            <View style={styles.analysisRow}>
+              <Text style={styles.analysisLabel}>Taxon name:</Text>
+              <View style={styles.analysisValue}>
+                {tree.taxonName ? (
+                  <Text style={styles.analysisValueText}>{tree.taxonName}</Text>
+                ) : (
+                  <View style={styles.placeholderContainer}>
+                    <Text style={styles.placeholderText}>Run AI</Text>
+                    <Text style={styles.placeholderIcon}>✨</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            
+            <View style={styles.analysisRow}>
+              <Text style={styles.analysisLabel}>Text description:</Text>
+              <View style={styles.analysisValue}>
+                {tree.description ? (
+                  <Text style={styles.analysisValueText}>{tree.description}</Text>
+                ) : (
+                  <View style={styles.placeholderContainer}>
+                    <Text style={styles.placeholderText}>Run AI</Text>
+                    <Text style={styles.placeholderIcon}>✨</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        </View>
+
       </ScrollView>
+
+      {/* Zoom Modal */}
+      <Modal
+        visible={zoomModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setZoomModalVisible(false)}
+      >
+        <View style={styles.zoomModalContainer}>
+          <TouchableOpacity
+            style={styles.zoomModalBackground}
+            activeOpacity={1}
+            onPress={() => setZoomModalVisible(false)}
+          >
+            <View style={styles.zoomModalContent}>
+              <TouchableOpacity
+                style={styles.zoomCloseButton}
+                onPress={() => setZoomModalVisible(false)}
+              >
+                <Text style={styles.zoomCloseButtonText}>✕</Text>
+              </TouchableOpacity>
+              <ScrollView
+                style={styles.zoomScrollView}
+                contentContainerStyle={styles.zoomScrollContent}
+                maximumZoomScale={3}
+                minimumZoomScale={1}
+                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                <Image
+                  source={{ uri: tree?.imageUri }}
+                  style={styles.zoomImage}
+                  resizeMode="contain"
+                />
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -495,6 +560,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111827',
   },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerDate: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
   deleteButton: {
     padding: 4,
   },
@@ -516,30 +590,53 @@ const styles = StyleSheet.create({
     width: imageDisplayWidth,
     height: imageDisplayWidth * 0.75,
   },
-  metadataContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  metadataItem: {
-    flexDirection: 'row',
+  zoomModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  taxonNameItem: {
-    marginTop: 8,
-    marginLeft: 32, // Align with the date text (icon width + marginLeft)
+  zoomModalBackground: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  taxonNameText: {
-    fontSize: 16,
-    color: '#374151',
+  zoomModalContent: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  metadataText: {
-    fontSize: 16,
-    color: '#374151',
-    marginLeft: 12,
+  zoomCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1000,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  zoomCloseButtonText: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  zoomScrollView: {
+    flex: 1,
+    width: '100%',
+  },
+  zoomScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  zoomImage: {
+    width: screenWidth,
+    height: screenWidth * 0.75,
   },
   descriptionContainer: {
     backgroundColor: '#ffffff',
@@ -549,42 +646,84 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
+  descriptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  processAIButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3b82f6',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+    shadowColor: '#3b82f6',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  processAIButtonDisabled: {
+    backgroundColor: '#9ca3af',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  processAIButtonText: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  analysisTable: {
+    gap: 12,
+  },
+  analysisRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  analysisLabel: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '500',
+    width: 120,
+    flexShrink: 0,
+  },
+  analysisValue: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  analysisValueText: {
+    fontSize: 16,
+    color: '#1f2937',
+    lineHeight: 22,
+  },
+  placeholderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+  },
+  placeholderIcon: {
+    fontSize: 16,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: 12,
-  },
-  descriptionInput: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#374151',
-    minHeight: 100,
-    marginBottom: 12,
-  },
-  generateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    padding: 12,
-    gap: 8,
-  },
-  generateButtonDisabled: {
-    backgroundColor: '#f9fafb',
-    opacity: 0.6,
-  },
-  generateButtonText: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
-  },
-  generateButtonTextDisabled: {
-    color: '#9ca3af',
   },
   photosContainer: {
     backgroundColor: '#ffffff',
@@ -660,23 +799,6 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
     lineHeight: 20,
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#22c55e',
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
-  },
-  saveButtonDisabled: {
-    backgroundColor: '#d1d5db',
-  },
-  saveButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#ffffff',
   },
   loadingContainer: {
     flex: 1,

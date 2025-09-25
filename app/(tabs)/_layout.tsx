@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { TreePine, Camera, Settings } from 'lucide-react-native';
+import { Platform } from 'react-native';
 
 export default function TabLayout() {
   return (
@@ -13,7 +14,8 @@ export default function TabLayout() {
           borderTopWidth: 1,
           borderTopColor: '#e5e7eb',
           paddingTop: 8,
-          paddingBottom: 8,
+          paddingBottom: Platform.OS === 'android' ? 24 : 8,
+          height: Platform.OS === 'android' ? 80 : 60,
         },
       }}>
       <Tabs.Screen

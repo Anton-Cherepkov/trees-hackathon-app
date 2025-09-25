@@ -103,7 +103,7 @@ export default function TreeListScreen() {
       onPress={() => router.push(`/tree-detail/${item.id}`)}
     >
       <Image 
-        source={{ uri: item.imageUri }} 
+        source={{ uri: item.cropPath || item.imageUri }} 
         style={styles.treeImage}
         onError={(error) => {
           console.log('Image load error in tree list:', error);
@@ -116,9 +116,11 @@ export default function TreeListScreen() {
         <Text style={styles.treeDate}>
           {new Date(item.dateTaken).toLocaleDateString()}
         </Text>
-        <Text style={styles.treeDescription} numberOfLines={2}>
-          {item.description || 'No description'}
-        </Text>
+        {item.taxonName && (
+          <Text style={styles.treeTaxon} numberOfLines={2}>
+            Taxon: {item.taxonName}
+          </Text>
+        )}
         <Text style={styles.additionalCount}>
           {item.additionalImages.length} additional photos
         </Text>
@@ -151,11 +153,6 @@ export default function TreeListScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Urban Trees</Text>
         <Text style={styles.subtitle}>{trees.length} trees recorded</Text>
-        <View style={styles.modelStatus}>
-          <Text style={styles.modelStatusText}>
-            YOLO Model: {modelLoading ? 'Loading...' : modelLoaded ? '✓ Loaded' : '✗ Not Loaded'}
-          </Text>
-        </View>
       </View>
 
       <FlatList
@@ -197,19 +194,6 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 4,
   },
-  modelStatus: {
-    marginTop: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  modelStatusText: {
-    fontSize: 12,
-    color: '#374151',
-    fontWeight: '500',
-  },
   listContainer: {
     padding: 16,
   },
@@ -231,7 +215,8 @@ const styles = StyleSheet.create({
   treeImage: {
     width: '100%',
     height: 200,
-    resizeMode: 'cover',
+    resizeMode: 'contain',
+    backgroundColor: '#f9fafb',
   },
   treeInfo: {
     padding: 16,
@@ -242,7 +227,7 @@ const styles = StyleSheet.create({
     color: '#22c55e',
     marginBottom: 8,
   },
-  treeDescription: {
+  treeTaxon: {
     fontSize: 16,
     color: '#374151',
     marginBottom: 8,
