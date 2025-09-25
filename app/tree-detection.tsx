@@ -152,6 +152,7 @@ export default function TreeDetectionScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  const [actualImageSize, setActualImageSize] = useState({ width: 0, height: 0 });
   const [imageError, setImageError] = useState(false);
   const router = useRouter();
 
@@ -311,19 +312,52 @@ export default function TreeDetectionScreen() {
   };
 
   const renderBoundingBoxes = () => {
-    if (!imageSize.width || !imageSize.height) return null;
+    if (!imageSize.width || !imageSize.height || !actualImageSize.width || !actualImageSize.height) return null;
+
+    // Calculate the actual image dimensions within the container
+    // The image uses resizeMode="contain" so it maintains aspect ratio
+    const containerWidth = imageSize.width;
+    const containerHeight = imageSize.height;
+    const originalImageWidth = actualImageSize.width;
+    const originalImageHeight = actualImageSize.height;
+    
+    // Calculate the actual displayed image dimensions within the container
+    const imageAspectRatio = originalImageWidth / originalImageHeight;
+    const containerAspectRatio = containerWidth / containerHeight;
+    
+    let displayedImageWidth, displayedImageHeight, offsetX, offsetY;
+    
+    if (imageAspectRatio > containerAspectRatio) {
+      // Image is wider than container - fit by width
+      displayedImageWidth = containerWidth;
+      displayedImageHeight = containerWidth / imageAspectRatio;
+      offsetX = 0;
+      offsetY = (containerHeight - displayedImageHeight) / 2;
+    } else {
+      // Image is taller than container - fit by height
+      displayedImageHeight = containerHeight;
+      displayedImageWidth = containerHeight * imageAspectRatio;
+      offsetX = (containerWidth - displayedImageWidth) / 2;
+      offsetY = 0;
+    }
+    
+    console.log('Container size:', containerWidth, containerHeight);
+    console.log('Original image size:', originalImageWidth, originalImageHeight);
+    console.log('Displayed image size:', displayedImageWidth, displayedImageHeight);
+    console.log('Image offset:', offsetX, offsetY);
 
     return (
       <Svg
         style={StyleSheet.absoluteFillObject}
-        width={imageSize.width}
-        height={imageSize.height}
+        width={containerWidth}
+        height={containerHeight}
       >
         {detectedTrees.map((tree, index) => {
-          const x = tree.x * imageSize.width;
-          const y = tree.y * imageSize.height;
-          const width = tree.width * imageSize.width;
-          const height = tree.height * imageSize.height;
+          // Convert relative coordinates to actual image coordinates
+          const x = tree.x * displayedImageWidth + offsetX;
+          const y = tree.y * displayedImageHeight + offsetY;
+          const width = tree.width * displayedImageWidth;
+          const height = tree.height * displayedImageHeight;
           const treeNumber = index + 1;
           
           return (
@@ -401,9 +435,14 @@ export default function TreeDetectionScreen() {
                 console.log('Image load error:', error);
                 setImageError(true);
               }}
-              onLoad={() => {
+              onLoad={(event) => {
                 console.log('Image loaded successfully');
                 setImageError(false);
+                
+                // Get actual image dimensions
+                const { width, height } = event.nativeEvent.source;
+                setActualImageSize({ width, height });
+                console.log('Actual image dimensions:', width, height);
               }}
               resizeMode="contain"
             />
