@@ -8,6 +8,7 @@ export interface TreeRecord {
   description: string;
   additionalImages: string[];
   cropPath?: string;
+  taxonName?: string;
 }
 
 export interface BoundingBox {
@@ -43,7 +44,8 @@ class TreeDatabase {
           dateTaken TEXT NOT NULL,
           description TEXT DEFAULT '',
           additionalImages TEXT DEFAULT '[]',
-          cropPath TEXT DEFAULT ''
+          cropPath TEXT DEFAULT '',
+          taxonName TEXT DEFAULT NULL
         );
       `);
       
@@ -55,6 +57,16 @@ class TreeDatabase {
       } catch (error) {
         // Column already exists, ignore the error
         console.log('cropPath column already exists or migration not needed');
+      }
+      
+      // Add taxonName column if it doesn't exist (for existing databases)
+      try {
+        await this.db.execAsync(`
+          ALTER TABLE trees ADD COLUMN taxonName TEXT DEFAULT NULL;
+        `);
+      } catch (error) {
+        // Column already exists, ignore the error
+        console.log('taxonName column already exists or migration not needed');
       }
       
       this.initialized = true;
@@ -73,8 +85,8 @@ class TreeDatabase {
     
     try {
       const result = await this.db!.runAsync(
-        `INSERT INTO trees (imageUri, boundingBoxX, boundingBoxY, boundingBoxWidth, boundingBoxHeight, dateTaken, description, additionalImages, cropPath)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO trees (imageUri, boundingBoxX, boundingBoxY, boundingBoxWidth, boundingBoxHeight, dateTaken, description, additionalImages, cropPath, taxonName)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           tree.imageUri,
           tree.boundingBox.x,
@@ -84,7 +96,8 @@ class TreeDatabase {
           tree.dateTaken,
           tree.description,
           JSON.stringify(tree.additionalImages),
-          tree.cropPath || ''
+          tree.cropPath || '',
+          tree.taxonName || null
         ]
       );
       
@@ -116,6 +129,7 @@ class TreeDatabase {
         description: row.description,
         additionalImages: JSON.parse(row.additionalImages || '[]'),
         cropPath: row.cropPath || '',
+        taxonName: row.taxonName || null,
       }));
     } catch (error) {
       console.error('Get all trees error:', error);
@@ -146,6 +160,7 @@ class TreeDatabase {
         description: (row as any).description,
         additionalImages: JSON.parse((row as any).additionalImages || '[]'),
         cropPath: (row as any).cropPath || '',
+        taxonName: (row as any).taxonName || null,
       };
     } catch (error) {
       console.error('Get tree by id error:', error);
@@ -170,6 +185,11 @@ class TreeDatabase {
       if (updates.additionalImages !== undefined) {
         fields.push('additionalImages = ?');
         values.push(JSON.stringify(updates.additionalImages));
+      }
+      
+      if (updates.taxonName !== undefined) {
+        fields.push('taxonName = ?');
+        values.push(updates.taxonName);
       }
       
       if (fields.length === 0) return;

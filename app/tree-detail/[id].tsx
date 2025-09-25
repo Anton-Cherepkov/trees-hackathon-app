@@ -18,6 +18,7 @@ import { ArrowLeft, Save, Trash2, Camera, Image as ImageIcon, Wand as Wand2, Cal
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import Svg, { Rect } from 'react-native-svg';
+import { classifyTreeImage, formatClassificationResult, extractTaxonName } from '@/utils/treeClassifier';
 
 const { width: screenWidth } = Dimensions.get('window');
 const imageDisplayWidth = screenWidth - 32;
@@ -27,6 +28,7 @@ export default function TreeDetailScreen() {
   const [tree, setTree] = useState<TreeRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingDescription, setGeneratingDescription] = useState(false);
   const [description, setDescription] = useState('');
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const router = useRouter();
@@ -235,8 +237,49 @@ export default function TreeDetailScreen() {
     );
   };
 
-  const generateDescription = () => {
-    Alert.alert('Coming Soon', 'AI description generation will be available in a future update.');
+  const generateDescription = async () => {
+    if (!tree || !tree.cropPath) {
+      Alert.alert('Error', 'No tree crop image available for classification.');
+      return;
+    }
+
+    try {
+      setGeneratingDescription(true);
+      console.log('Starting description generation for tree:', tree.id);
+      console.log('Using crop path:', tree.cropPath);
+
+      // Classify the tree crop image
+      const classificationResult = await classifyTreeImage(tree.cropPath);
+      
+      // Extract taxon name and format the result as description text
+      const taxonName = extractTaxonName(classificationResult);
+      const descriptionText = formatClassificationResult(classificationResult);
+      
+      // Update the description in the UI
+      setDescription(descriptionText);
+      
+      // Update the tree record in the database with both description and taxon name
+      await treeDatabase.updateTree(tree.id!, { 
+        description: descriptionText,
+        taxonName: taxonName || undefined
+      });
+      
+      // Update the local tree state
+      setTree({ ...tree, description: descriptionText, taxonName: taxonName || undefined });
+      
+      console.log('Description generated and saved successfully');
+      Alert.alert('Success', 'Tree description generated successfully!');
+      
+    } catch (error) {
+      console.error('Error generating description:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      Alert.alert(
+        'Error', 
+        `Failed to generate description: ${errorMessage}\n\nPlease check your internet connection and try again.`
+      );
+    } finally {
+      setGeneratingDescription(false);
+    }
   };
 
   const getImageLayout = (event: any) => {
@@ -344,6 +387,11 @@ export default function TreeDetailScreen() {
               })}
             </Text>
           </View>
+          <View style={styles.taxonNameItem}>
+            <Text style={styles.taxonNameText}>
+              Taxon name: {tree.taxonName || 'unknown'}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.descriptionContainer}>
@@ -358,11 +406,20 @@ export default function TreeDetailScreen() {
             textAlignVertical="top"
           />
           <TouchableOpacity
-            style={styles.generateButton}
+            style={[
+              styles.generateButton,
+              generatingDescription && styles.generateButtonDisabled
+            ]}
             onPress={generateDescription}
+            disabled={generatingDescription}
           >
-            <Wand2 size={20} color="#6b7280" />
-            <Text style={styles.generateButtonText}>Generate Description</Text>
+            <Wand2 size={20} color={generatingDescription ? "#9ca3af" : "#6b7280"} />
+            <Text style={[
+              styles.generateButtonText,
+              generatingDescription && styles.generateButtonTextDisabled
+            ]}>
+              {generatingDescription ? 'Generating...' : 'Generate Description'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -471,6 +528,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  taxonNameItem: {
+    marginTop: 8,
+    marginLeft: 32, // Align with the date text (icon width + marginLeft)
+  },
+  taxonNameText: {
+    fontSize: 16,
+    color: '#374151',
+  },
   metadataText: {
     fontSize: 16,
     color: '#374151',
@@ -509,10 +574,17 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 8,
   },
+  generateButtonDisabled: {
+    backgroundColor: '#f9fafb',
+    opacity: 0.6,
+  },
   generateButtonText: {
     fontSize: 14,
     color: '#6b7280',
     fontWeight: '500',
+  },
+  generateButtonTextDisabled: {
+    color: '#9ca3af',
   },
   photosContainer: {
     backgroundColor: '#ffffff',
