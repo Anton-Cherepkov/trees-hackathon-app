@@ -28,7 +28,7 @@ class TreeDatabase {
     }
 
     try {
-      this.db = await SQLite.openDatabaseAsync('trees.db');
+      this.db = await SQLite.openDatabaseAsync('trees.db', {useNewConnection: true});
       
       await this.db.execAsync(`
         PRAGMA journal_mode = WAL;
