@@ -12,6 +12,8 @@ export interface DetectedTree {
   y: number;
   width: number;
   height: number;
+  xbr: number;
+  ybr: number;
   selected: boolean;
 }
 
@@ -95,6 +97,8 @@ export async function runYOLOInference(inputData: Float32Array): Promise<Detecte
           y: Math.max(0, Math.min(1, y)), // Clamp to [0, 1]
           width: Math.max(0, Math.min(1, width)), // Clamp to [0, 1]
           height: Math.max(0, Math.min(1, height)), // Clamp to [0, 1]
+          xbr: Math.max(0, Math.min(1, x + width)),
+          ybr: Math.max(0, Math.min(1, y + height)),
           selected: true, // All detected trees are selected by default
         };
         

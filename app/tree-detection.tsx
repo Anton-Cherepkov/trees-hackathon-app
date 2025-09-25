@@ -16,6 +16,7 @@ import { Check, X, Save, ArrowLeft } from 'lucide-react-native';
 import Svg, { Rect, Text as SvgText, G, Circle } from 'react-native-svg';
 import { preprocessImage } from '@/utils/preprocessImage';
 import { runYOLOInference, DetectedTree } from '@/utils/yoloInference';
+import { cropTreeWithDimensions } from '@/utils/treeCropper';
 
 const { width: screenWidth } = Dimensions.get('window');
 const imageDisplayWidth = screenWidth - 32;
@@ -90,6 +91,8 @@ export default function TreeDetectionScreen() {
             y: 0.2,
             width: 0.25,
             height: 0.35,
+            xbr: 0.4,
+            ybr: 0.55,
             selected: true,
           },
           {
@@ -98,6 +101,8 @@ export default function TreeDetectionScreen() {
             y: 0.15,
             width: 0.3,
             height: 0.4,
+            xbr: 0.8,
+            ybr: 0.55,
             selected: true,
           },
           {
@@ -106,6 +111,8 @@ export default function TreeDetectionScreen() {
             y: 0.25,
             width: 0.2,
             height: 0.3,
+            xbr: 0.95,
+            ybr: 0.55,
             selected: true,
           },
         ];
@@ -145,6 +152,28 @@ export default function TreeDetectionScreen() {
 
       // Save each selected tree to the database
       for (const tree of selectedTrees) {
+        console.log(`Processing tree ${tree.id} for cropping and saving...`);
+        
+        // Crop the tree from the original image
+        let cropPath = '';
+        try {
+          console.log(`Cropping tree ${tree.id}...`);
+          cropPath = await cropTreeWithDimensions(
+            imageUri!,
+            {
+              x: tree.x,
+              y: tree.y,
+              width: tree.width,
+              height: tree.height,
+            },
+            tree.id
+          );
+          console.log(`Tree ${tree.id} cropped successfully to:`, cropPath);
+        } catch (cropError) {
+          console.error(`Failed to crop tree ${tree.id}:`, cropError);
+          // Continue without crop - don't fail the entire save operation
+        }
+
         const treeRecord = {
           imageUri: imageUri!,
           boundingBox: {
@@ -156,9 +185,14 @@ export default function TreeDetectionScreen() {
           dateTaken: currentDate,
           description: '',
           additionalImages: [],
+          cropPath: cropPath,
         };
 
+        console.log('Tree record:', treeRecord);
+        console.log('treeDatabase:', treeDatabase);
+
         await treeDatabase.insertTree(treeRecord);
+        console.log(`Tree ${tree.id} saved to database successfully`);
       }
 
       Alert.alert(

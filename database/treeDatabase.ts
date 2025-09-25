@@ -7,6 +7,7 @@ export interface TreeRecord {
   dateTaken: string;
   description: string;
   additionalImages: string[];
+  cropPath?: string;
 }
 
 export interface BoundingBox {
@@ -41,9 +42,20 @@ class TreeDatabase {
           boundingBoxHeight REAL NOT NULL,
           dateTaken TEXT NOT NULL,
           description TEXT DEFAULT '',
-          additionalImages TEXT DEFAULT '[]'
+          additionalImages TEXT DEFAULT '[]',
+          cropPath TEXT DEFAULT ''
         );
       `);
+      
+      // Add cropPath column if it doesn't exist (for existing databases)
+      try {
+        await this.db.execAsync(`
+          ALTER TABLE trees ADD COLUMN cropPath TEXT DEFAULT '';
+        `);
+      } catch (error) {
+        // Column already exists, ignore the error
+        console.log('cropPath column already exists or migration not needed');
+      }
       
       this.initialized = true;
       console.log('Database initialized successfully');
@@ -61,8 +73,8 @@ class TreeDatabase {
     
     try {
       const result = await this.db!.runAsync(
-        `INSERT INTO trees (imageUri, boundingBoxX, boundingBoxY, boundingBoxWidth, boundingBoxHeight, dateTaken, description, additionalImages)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO trees (imageUri, boundingBoxX, boundingBoxY, boundingBoxWidth, boundingBoxHeight, dateTaken, description, additionalImages, cropPath)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           tree.imageUri,
           tree.boundingBox.x,
@@ -71,7 +83,8 @@ class TreeDatabase {
           tree.boundingBox.height,
           tree.dateTaken,
           tree.description,
-          JSON.stringify(tree.additionalImages)
+          JSON.stringify(tree.additionalImages),
+          tree.cropPath || ''
         ]
       );
       
@@ -102,6 +115,7 @@ class TreeDatabase {
         dateTaken: row.dateTaken,
         description: row.description,
         additionalImages: JSON.parse(row.additionalImages || '[]'),
+        cropPath: row.cropPath || '',
       }));
     } catch (error) {
       console.error('Get all trees error:', error);
@@ -131,6 +145,7 @@ class TreeDatabase {
         dateTaken: (row as any).dateTaken,
         description: (row as any).description,
         additionalImages: JSON.parse((row as any).additionalImages || '[]'),
+        cropPath: (row as any).cropPath || '',
       };
     } catch (error) {
       console.error('Get tree by id error:', error);
