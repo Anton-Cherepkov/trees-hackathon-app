@@ -19,6 +19,8 @@ import { ArrowLeft, Save, Trash2, Camera, Image as ImageIcon, Wand as Wand2, Cal
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { classifyTreeImage, formatClassificationResult, extractTaxonName } from '@/utils/treeClassifier';
+import { processDefectsForTree } from '@/utils/defectDetection';
+import { DefectRecord } from '@/database/treeDatabase';
 import Svg, { Rect } from 'react-native-svg';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -33,6 +35,9 @@ export default function TreeDetailScreen() {
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [actualImageSize, setActualImageSize] = useState({ width: 0, height: 0 });
   const [zoomModalVisible, setZoomModalVisible] = useState(false);
+  const [defects, setDefects] = useState<DefectRecord[]>([]);
+  const [defectZoomModalVisible, setDefectZoomModalVisible] = useState(false);
+  const [selectedDefectImage, setSelectedDefectImage] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -52,6 +57,10 @@ export default function TreeDetailScreen() {
       if (treeData) {
         setTree(treeData);
         setDescription(treeData.description);
+        
+        // Load defects for this tree
+        const treeDefects = await treeDatabase.getDefectsByTreeId(parseInt(id!));
+        setDefects(treeDefects);
       } else {
         console.log('Tree not found for id:', id);
         Alert.alert('Error', 'Tree not found. It may have been deleted.');
@@ -224,6 +233,36 @@ export default function TreeDetailScreen() {
     );
   };
 
+  const deleteDefect = async (defectId: number) => {
+    console.log('Attempting to delete defect with ID:', defectId);
+    console.log('Current defects:', defects.map(d => ({ id: d.defect_id, type: d.defect_type })));
+    
+    Alert.alert(
+      'Delete Defect',
+      'Are you sure you want to delete this defect? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await treeDatabase.deleteDefect(defectId);
+              // Update local defects state
+              const updatedDefects = defects.filter(defect => defect.defect_id !== defectId);
+              console.log('Defects after deletion:', updatedDefects.map(d => ({ id: d.defect_id, type: d.defect_type })));
+              setDefects(updatedDefects);
+              console.log('Defect deleted successfully');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete defect');
+              console.error('Delete defect error:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const generateDescription = async () => {
     if (!tree || !tree.cropPath) {
       Alert.alert('Error', 'No tree crop image available for classification.');
@@ -241,6 +280,24 @@ export default function TreeDetailScreen() {
       // Extract taxon name only
       const taxonName = extractTaxonName(classificationResult);
       
+      // Process defects for this tree
+      console.log('Starting defect detection for tree:', tree.id);
+      const defectRecords = await processDefectsForTree(
+        tree.id!,
+        tree.cropPath,
+        tree.additionalImages
+      );
+      
+      // Save defects to database and collect the inserted records with IDs
+      const insertedDefects: DefectRecord[] = [];
+      for (const defectRecord of defectRecords) {
+        const defectId = await treeDatabase.insertDefect(defectRecord);
+        insertedDefects.push({
+          ...defectRecord,
+          defect_id: defectId
+        });
+      }
+      
       // Update the description in the UI (leave empty for now)
       setDescription("");
       
@@ -253,8 +310,11 @@ export default function TreeDetailScreen() {
       // Update the local tree state
       setTree({ ...tree, description: "", taxonName: taxonName || undefined });
       
-      console.log('Description generated and saved successfully');
-      Alert.alert('Success', 'Tree description generated successfully!');
+      // Update defects state with the inserted records that have IDs
+      setDefects(insertedDefects);
+      
+      console.log('Description and defects generated and saved successfully');
+      Alert.alert('Success', `Tree analysis completed! Found ${defectRecords.length} defects.`);
       
     } catch (error) {
       console.error('Error generating description:', error);
@@ -493,6 +553,61 @@ export default function TreeDetailScreen() {
           </View>
         </View>
 
+        {/* Defects Section */}
+        <View style={styles.defectsContainer}>
+          <Text style={styles.sectionTitle}>Defects</Text>
+          
+          {defects.length > 0 ? (
+            <View style={styles.defectsContent}>
+              {Object.entries(
+                defects.reduce((acc, defect) => {
+                  if (!acc[defect.defect_type]) {
+                    acc[defect.defect_type] = [];
+                  }
+                  acc[defect.defect_type].push(defect);
+                  return acc;
+                }, {} as Record<string, DefectRecord[]>)
+              ).map(([defectType, typeDefects]) => (
+                <View key={defectType} style={styles.defectTypeContainer}>
+                  <Text style={styles.defectTypeTitle}>{defectType}</Text>
+                  <View style={styles.defectCropsContainer}>
+                    {typeDefects.map((defect, index) => (
+                      <View key={defect.defect_id || index} style={styles.defectCropWrapper}>
+                        <TouchableOpacity
+                          style={styles.defectCropContainer}
+                          onPress={() => {
+                            setSelectedDefectImage(defect.crop_path);
+                            setDefectZoomModalVisible(true);
+                          }}
+                        >
+                          <Image
+                            source={{ uri: defect.crop_path }}
+                            style={styles.defectCropImage}
+                            resizeMode="contain"
+                          />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.deleteDefectButton}
+                          onPress={() => deleteDefect(defect.defect_id!)}
+                        >
+                          <Trash2 size={16} color="#ffffff" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyDefects}>
+              <Text style={styles.emptyDefectsText}>No defects detected yet</Text>
+              <Text style={styles.emptyDefectsSubtext}>
+                Run AI analysis to detect potential issues
+              </Text>
+            </View>
+          )}
+        </View>
+
       </ScrollView>
 
       {/* Zoom Modal */}
@@ -529,6 +644,48 @@ export default function TreeDetailScreen() {
                   style={styles.zoomImage}
                   resizeMode="contain"
                 />
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Defect Zoom Modal */}
+      <Modal
+        visible={defectZoomModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setDefectZoomModalVisible(false)}
+      >
+        <View style={styles.zoomModalContainer}>
+          <TouchableOpacity
+            style={styles.zoomModalBackground}
+            activeOpacity={1}
+            onPress={() => setDefectZoomModalVisible(false)}
+          >
+            <View style={styles.zoomModalContent}>
+              <TouchableOpacity
+                style={styles.zoomCloseButton}
+                onPress={() => setDefectZoomModalVisible(false)}
+              >
+                <Text style={styles.zoomCloseButtonText}>✕</Text>
+              </TouchableOpacity>
+              <ScrollView
+                style={styles.zoomScrollView}
+                contentContainerStyle={styles.zoomScrollContent}
+                maximumZoomScale={3}
+                minimumZoomScale={1}
+                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                {selectedDefectImage && (
+                  <Image
+                    source={{ uri: selectedDefectImage }}
+                    style={styles.zoomImage}
+                    resizeMode="contain"
+                  />
+                )}
               </ScrollView>
             </View>
           </TouchableOpacity>
@@ -814,5 +971,85 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     textAlign: 'center',
     marginTop: 40,
+  },
+  defectsContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  defectsContent: {
+    gap: 16,
+  },
+  defectTypeContainer: {
+    gap: 8,
+  },
+  defectTypeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    textTransform: 'capitalize',
+  },
+  defectCropsContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 12,
+  },
+  defectCropWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  defectCropContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  defectCropImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  deleteDefectButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  emptyDefects: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyDefectsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  emptyDefectsSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

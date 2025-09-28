@@ -18,6 +18,18 @@ export interface BoundingBox {
   height: number;
 }
 
+export interface DefectRecord {
+  defect_id?: number;
+  tree_id: number;
+  xtl: number;
+  ytl: number;
+  xbr: number;
+  ybr: number;
+  image_path: string;
+  crop_path: string;
+  defect_type: string;
+}
+
 class TreeDatabase {
   private db: SQLite.SQLiteDatabase | null = null;
   private initialized = false;
@@ -46,6 +58,19 @@ class TreeDatabase {
           additionalImages TEXT DEFAULT '[]',
           cropPath TEXT DEFAULT '',
           taxonName TEXT DEFAULT NULL
+        );
+        
+        CREATE TABLE IF NOT EXISTS defects (
+          defect_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          tree_id INTEGER NOT NULL,
+          xtl REAL NOT NULL,
+          ytl REAL NOT NULL,
+          xbr REAL NOT NULL,
+          ybr REAL NOT NULL,
+          image_path TEXT NOT NULL,
+          crop_path TEXT NOT NULL,
+          defect_type TEXT NOT NULL,
+          FOREIGN KEY (tree_id) REFERENCES trees (id) ON DELETE CASCADE
         );
       `);
       
@@ -229,6 +254,89 @@ class TreeDatabase {
       console.log('All trees cleared from database');
     } catch (error) {
       console.error('Clear all trees error:', error);
+      throw error;
+    }
+  }
+
+  // Defect-related methods
+  async insertDefect(defect: Omit<DefectRecord, 'defect_id'>): Promise<number> {
+    if (!this.db || !this.initialized) {
+      await this.init();
+    }
+    
+    try {
+      const result = await this.db!.runAsync(
+        `INSERT INTO defects (tree_id, xtl, ytl, xbr, ybr, image_path, crop_path, defect_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          defect.tree_id,
+          defect.xtl,
+          defect.ytl,
+          defect.xbr,
+          defect.ybr,
+          defect.image_path,
+          defect.crop_path,
+          defect.defect_type
+        ]
+      );
+      
+      return result.lastInsertRowId;
+    } catch (error) {
+      console.error('Insert defect error:', error);
+      throw error;
+    }
+  }
+
+  async getDefectsByTreeId(treeId: number): Promise<DefectRecord[]> {
+    if (!this.db || !this.initialized) {
+      await this.init();
+    }
+    
+    try {
+      const rows = await this.db!.getAllAsync(
+        'SELECT * FROM defects WHERE tree_id = ? ORDER BY defect_id ASC',
+        [treeId]
+      );
+      
+      return rows.map((row: any) => ({
+        defect_id: row.defect_id,
+        tree_id: row.tree_id,
+        xtl: row.xtl,
+        ytl: row.ytl,
+        xbr: row.xbr,
+        ybr: row.ybr,
+        image_path: row.image_path,
+        crop_path: row.crop_path,
+        defect_type: row.defect_type,
+      }));
+    } catch (error) {
+      console.error('Get defects by tree id error:', error);
+      throw error;
+    }
+  }
+
+  async deleteDefect(defectId: number): Promise<void> {
+    if (!this.db || !this.initialized) {
+      await this.init();
+    }
+    
+    try {
+      await this.db!.runAsync('DELETE FROM defects WHERE defect_id = ?', [defectId]);
+    } catch (error) {
+      console.error('Delete defect error:', error);
+      throw error;
+    }
+  }
+
+  async deleteDefectsByTreeId(treeId: number): Promise<void> {
+    if (!this.db || !this.initialized) {
+      await this.init();
+    }
+    
+    try {
+      await this.db!.runAsync('DELETE FROM defects WHERE tree_id = ?', [treeId]);
+    } catch (error) {
+      console.error('Delete defects by tree id error:', error);
       throw error;
     }
   }
