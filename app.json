@@ -30,6 +30,12 @@
     "android": {
       "package": "com.anonymous.boltexponativewind",
       "ndkVersion": "29.0.14033849"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "92a9b852-ac92-48b6-9fea-b6e3ce6eee32"
+      }
     }
   }
 }
