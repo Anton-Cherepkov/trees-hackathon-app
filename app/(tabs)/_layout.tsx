@@ -21,7 +21,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Trees',
+          title: 'Деревья',
           tabBarIcon: ({ size, color }) => (
             <TreePine size={size} color={color} />
           ),
@@ -30,7 +30,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="capture"
         options={{
-          title: 'Capture',
+          title: 'Съёмка',
           tabBarIcon: ({ size, color }) => (
             <Camera size={size} color={color} />
           ),
@@ -42,7 +42,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: 'Настройки',
           tabBarIcon: ({ size, color }) => (
             <Settings size={size} color={color} />
           ),

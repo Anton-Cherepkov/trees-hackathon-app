@@ -72,8 +72,8 @@ export default function TreeDetectionScreen() {
         
         if (detectedTrees.length === 0) {
           Alert.alert(
-            'No Trees Detected', 
-            'No trees were found in this image with sufficient confidence. Try taking another photo with better lighting or clearer tree visibility.'
+            'Деревья не обнаружены', 
+            'В этом изображении не найдено деревьев с достаточной уверенностью. Попробуйте сделать другое фото с лучшим освещением или более четкой видимостью деревьев.'
           );
         }
       } else {
@@ -120,7 +120,7 @@ export default function TreeDetectionScreen() {
         setDetectedTrees(mockDetections);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to detect trees');
+      Alert.alert('Ошибка', 'Не удалось обнаружить деревья');
       console.error('Detection error:', error);
     } finally {
       setLoading(false);
@@ -144,7 +144,7 @@ export default function TreeDetectionScreen() {
       const selectedTrees = detectedTrees.filter(tree => tree.selected);
       
       if (selectedTrees.length === 0) {
-        Alert.alert('No Selection', 'Please select at least one tree to save.');
+        Alert.alert('Нет выбора', 'Пожалуйста, выберите хотя бы одно дерево для сохранения.');
         return;
       }
 
@@ -196,11 +196,11 @@ export default function TreeDetectionScreen() {
       }
 
       Alert.alert(
-        'Success',
-        `${selectedTrees.length} tree${selectedTrees.length === 1 ? '' : 's'} saved successfully!`,
+        'Успешно',
+        `Успешно сохранено ${selectedTrees.length} ${selectedTrees.length === 1 ? 'дерево' : selectedTrees.length < 5 ? 'дерева' : 'деревьев'}!`,
         [
           {
-            text: 'OK',
+            text: 'ОК',
             onPress: () => {
               router.push('/');
             },
@@ -208,7 +208,7 @@ export default function TreeDetectionScreen() {
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'Failed to save trees');
+      Alert.alert('Ошибка', 'Не удалось сохранить деревья');
       console.error('Save error:', error);
     } finally {
       setSaving(false);
@@ -311,7 +311,7 @@ export default function TreeDetectionScreen() {
   if (!imageUri) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>No image selected</Text>
+        <Text style={styles.errorText}>Изображение не выбрано</Text>
       </SafeAreaView>
     );
   }
@@ -325,15 +325,15 @@ export default function TreeDetectionScreen() {
         >
           <ArrowLeft size={24} color="#374151" />
         </TouchableOpacity>
-        <Text style={styles.title}>Tree Detection</Text>
+        <Text style={styles.title}>Обнаружение деревьев</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.imageContainer}>
           {imageError ? (
             <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>Failed to load image</Text>
-              <Text style={styles.errorSubtext}>Please try taking another photo</Text>
+              <Text style={styles.errorText}>Не удалось загрузить изображение</Text>
+              <Text style={styles.errorSubtext}>Попробуйте сделать другое фото</Text>
             </View>
           ) : (
             <Image
@@ -360,9 +360,9 @@ export default function TreeDetectionScreen() {
           
           {loading && (
             <View style={styles.loadingOverlay}>
-              <Text style={styles.loadingText}>Detecting trees...</Text>
+              <Text style={styles.loadingText}>Обнаружение деревьев...</Text>
               <Text style={styles.loadingSubtext}>
-                AI is analyzing the image
+                ИИ анализирует изображение
               </Text>
             </View>
           )}
@@ -372,10 +372,10 @@ export default function TreeDetectionScreen() {
           <>
             <View style={styles.detectionInfo}>
               <Text style={styles.detectionTitle}>
-                {detectedTrees.length} Trees Detected
+                Обнаружено {detectedTrees.length} {detectedTrees.length === 1 ? 'дерево' : detectedTrees.length < 5 ? 'дерева' : 'деревьев'}
               </Text>
               <Text style={styles.detectionSubtitle}>
-                Tap trees to select/deselect them for saving
+                Нажмите на деревья, чтобы выбрать/отменить выбор для сохранения
               </Text>
             </View>
 
@@ -394,7 +394,7 @@ export default function TreeDetectionScreen() {
                       styles.treeItemTitle,
                       tree.selected ? styles.selectedText : styles.unselectedText,
                     ]}>
-                      Tree {index + 1}
+                      Дерево {index + 1}
                     </Text>
                   </View>
                   <View style={[
@@ -422,8 +422,8 @@ export default function TreeDetectionScreen() {
               <Save size={24} color="#ffffff" />
               <Text style={styles.saveButtonText}>
                 {saving
-                  ? 'Saving...'
-                  : `Save ${detectedTrees.filter(t => t.selected).length} Trees`
+                  ? 'Сохранение...'
+                  : `Сохранить ${detectedTrees.filter(t => t.selected).length} ${detectedTrees.filter(t => t.selected).length === 1 ? 'дерево' : detectedTrees.filter(t => t.selected).length < 5 ? 'дерева' : 'деревьев'}`
                 }
               </Text>
             </TouchableOpacity>
@@ -499,14 +499,17 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
   },
   detectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: 4,
+    flexWrap: 'wrap',
   },
   detectionSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6b7280',
+    lineHeight: 18,
+    flexWrap: 'wrap',
   },
   treesList: {
     marginBottom: 24,
@@ -569,9 +572,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#d1d5db',
   },
   saveButtonText: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#ffffff',
+    flexWrap: 'wrap',
+    textAlign: 'center',
   },
   errorText: {
     fontSize: 16,

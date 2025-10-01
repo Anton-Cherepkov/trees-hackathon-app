@@ -22,7 +22,7 @@ export default function CaptureScreen() {
       
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'Camera permission is required to take photos.');
+        Alert.alert('Требуется разрешение', 'Для съёмки фотографий требуется разрешение на использование камеры.');
         return;
       }
 
@@ -59,7 +59,7 @@ export default function CaptureScreen() {
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to take picture');
+      Alert.alert('Ошибка', 'Не удалось сделать снимок');
       console.error('Camera error:', error);
     } finally {
       setLoading(false);
@@ -72,7 +72,7 @@ export default function CaptureScreen() {
       
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'Gallery access permission is required to select photos.');
+        Alert.alert('Требуется разрешение', 'Для выбора фотографий требуется разрешение на доступ к галерее.');
         return;
       }
 
@@ -109,7 +109,7 @@ export default function CaptureScreen() {
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to select image from gallery');
+      Alert.alert('Ошибка', 'Не удалось выбрать изображение из галереи');
       console.error('Gallery error:', error);
     } finally {
       setLoading(false);
@@ -119,9 +119,9 @@ export default function CaptureScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Capture Trees</Text>
+        <Text style={styles.title}>Съёмка деревьев</Text>
         <Text style={styles.subtitle}>
-          Take a photo or select from gallery to detect trees
+          Сфотографируйте или выберите из галереи для обнаружения деревьев
         </Text>
       </View>
 
@@ -135,9 +135,9 @@ export default function CaptureScreen() {
             <View style={styles.iconContainer}>
               <Camera size={48} color="#ffffff" />
             </View>
-            <Text style={[styles.optionTitle, styles.cameraText]}>Take Photo</Text>
+            <Text style={[styles.optionTitle, styles.cameraText]}>Сфотографировать</Text>
             <Text style={[styles.optionDescription, styles.cameraText]}>
-              Use camera to capture trees in the field
+              Используйте камеру для съёмки деревьев в поле
             </Text>
           </TouchableOpacity>
 
@@ -149,9 +149,9 @@ export default function CaptureScreen() {
             <View style={[styles.iconContainer, styles.galleryIconContainer]}>
               <ImageIcon size={48} color="#22c55e" />
             </View>
-            <Text style={styles.optionTitle}>Select from Gallery</Text>
+            <Text style={styles.optionTitle}>Выбрать из галереи</Text>
             <Text style={styles.optionDescription}>
-              Choose an existing photo from your device
+              Выберите существующее фото с вашего устройства
             </Text>
           </TouchableOpacity>
         </View>
@@ -222,18 +222,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34, 197, 94, 0.1)',
   },
   optionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: 8,
+    textAlign: 'center',
   },
   cameraText: {
     color: '#ffffff',
   },
   optionDescription: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#6b7280',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 20,
+    flexWrap: 'wrap',
   },
 });

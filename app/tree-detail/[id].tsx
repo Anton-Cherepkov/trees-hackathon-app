@@ -63,12 +63,12 @@ export default function TreeDetailScreen() {
         setDefects(treeDefects);
       } else {
         console.log('Tree not found for id:', id);
-        Alert.alert('Error', 'Tree not found. It may have been deleted.');
+        Alert.alert('Ошибка', 'Дерево не найдено. Возможно, оно было удалено.');
         router.back();
       }
     } catch (error) {
       console.error('Load tree error:', error);
-      Alert.alert('Error', 'Failed to load tree data. Please try again.');
+      Alert.alert('Ошибка', 'Не удалось загрузить данные о дереве. Попробуйте снова.');
       router.back();
     } finally {
       setLoading(false);
@@ -80,19 +80,19 @@ export default function TreeDetailScreen() {
     if (!tree) return;
 
     Alert.alert(
-      'Delete Tree',
-      'Are you sure you want to delete this tree record? This action cannot be undone.',
+      'Удалить дерево',
+      'Вы уверены, что хотите удалить эту запись о дереве? Это действие нельзя отменить.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Отмена', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Удалить',
           style: 'destructive',
           onPress: async () => {
             try {
               await treeDatabase.deleteTree(tree.id!);
               router.push('/');
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete tree');
+              Alert.alert('Ошибка', 'Не удалось удалить дерево');
               console.error('Delete error:', error);
             }
           },
@@ -105,16 +105,16 @@ export default function TreeDetailScreen() {
     if (!tree) return;
 
     Alert.alert(
-      'Add Photo',
-      'How would you like to add a photo?',
+      'Добавить фото',
+      'Как вы хотите добавить фото?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Отмена', style: 'cancel' },
         {
-          text: 'Camera',
+          text: 'Камера',
           onPress: () => takePhoto(),
         },
         {
-          text: 'Gallery',
+          text: 'Галерея',
           onPress: () => selectFromGallery(),
         },
       ]
@@ -125,7 +125,7 @@ export default function TreeDetailScreen() {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'Camera permission is required to take photos.');
+        Alert.alert('Требуется разрешение', 'Для съёмки фотографий требуется разрешение на использование камеры.');
         return;
       }
 
@@ -159,7 +159,7 @@ export default function TreeDetailScreen() {
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to take photo');
+      Alert.alert('Ошибка', 'Не удалось сделать снимок');
       console.error('Camera error:', error);
     }
   };
@@ -168,7 +168,7 @@ export default function TreeDetailScreen() {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'Gallery access permission is required.');
+        Alert.alert('Требуется разрешение', 'Требуется разрешение на доступ к галерее.');
         return;
       }
 
@@ -202,7 +202,7 @@ export default function TreeDetailScreen() {
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to select image');
+      Alert.alert('Ошибка', 'Не удалось выбрать изображение');
       console.error('Gallery error:', error);
     }
   };
@@ -211,12 +211,12 @@ export default function TreeDetailScreen() {
     if (!tree) return;
 
     Alert.alert(
-      'Delete Image',
-      'Are you sure you want to delete this image?',
+      'Удалить изображение',
+      'Вы уверены, что хотите удалить это изображение?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Отмена', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Удалить',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -224,7 +224,7 @@ export default function TreeDetailScreen() {
               await treeDatabase.updateTree(tree.id!, { additionalImages: newImages });
               setTree({ ...tree, additionalImages: newImages });
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete image');
+              Alert.alert('Ошибка', 'Не удалось удалить изображение');
               console.error('Delete image error:', error);
             }
           },
@@ -238,12 +238,12 @@ export default function TreeDetailScreen() {
     console.log('Current defects:', defects.map(d => ({ id: d.defect_id, type: d.defect_type })));
     
     Alert.alert(
-      'Delete Defect',
-      'Are you sure you want to delete this defect? This action cannot be undone.',
+      'Удалить дефект',
+      'Вы уверены, что хотите удалить этот дефект? Это действие нельзя отменить.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Отмена', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Удалить',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -254,7 +254,7 @@ export default function TreeDetailScreen() {
               setDefects(updatedDefects);
               console.log('Defect deleted successfully');
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete defect');
+              Alert.alert('Ошибка', 'Не удалось удалить дефект');
               console.error('Delete defect error:', error);
             }
           },
@@ -265,7 +265,7 @@ export default function TreeDetailScreen() {
 
   const generateDescription = async () => {
     if (!tree || !tree.cropPath) {
-      Alert.alert('Error', 'No tree crop image available for classification.');
+      Alert.alert('Ошибка', 'Нет изображения обрезки дерева для классификации.');
       return;
     }
 
@@ -314,14 +314,14 @@ export default function TreeDetailScreen() {
       setDefects(insertedDefects);
       
       console.log('Description and defects generated and saved successfully');
-      Alert.alert('Success', `Tree analysis completed! Found ${defectRecords.length} defects.`);
+      Alert.alert('Успешно', `Анализ дерева завершён! Найдено ${defectRecords.length} дефектов.`);
       
     } catch (error) {
       console.error('Error generating description:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       Alert.alert(
-        'Error', 
-        `Failed to generate description: ${errorMessage}\n\nPlease check your internet connection and try again.`
+        'Ошибка', 
+        `Не удалось сгенерировать описание: ${errorMessage}\n\nПроверьте подключение к интернету и попробуйте снова.`
       );
     } finally {
       setGeneratingDescription(false);
@@ -404,7 +404,7 @@ export default function TreeDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading tree details...</Text>
+          <Text style={styles.loadingText}>Загрузка деталей дерева...</Text>
         </View>
       </SafeAreaView>
     );
@@ -413,7 +413,7 @@ export default function TreeDetailScreen() {
   if (!tree) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>Tree not found</Text>
+        <Text style={styles.errorText}>Дерево не найдено</Text>
       </SafeAreaView>
     );
   }
@@ -428,9 +428,9 @@ export default function TreeDetailScreen() {
           <ArrowLeft size={24} color="#374151" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.title}>Tree Details</Text>
+          <Text style={styles.title}>Детали дерева</Text>
           <Text style={styles.headerDate}>
-            {new Date(tree.dateTaken).toLocaleDateString('en-US', {
+            {new Date(tree.dateTaken).toLocaleDateString('ru-RU', {
               year: 'numeric',
               month: 'long',
               day: 'numeric',
@@ -474,13 +474,13 @@ export default function TreeDetailScreen() {
 
         <View style={styles.photosContainer}>
           <View style={styles.photosHeader}>
-            <Text style={styles.sectionTitle}>Additional Photos</Text>
+            <Text style={styles.sectionTitle}>Дополнительные фото</Text>
             <TouchableOpacity
               style={styles.addPhotoButton}
               onPress={addPhoto}
             >
               <Camera size={20} color="#ffffff" />
-              <Text style={styles.addPhotoText}>Add Photo</Text>
+              <Text style={styles.addPhotoText}>Добавить фото</Text>
             </TouchableOpacity>
           </View>
 
@@ -496,9 +496,9 @@ export default function TreeDetailScreen() {
           ) : (
             <View style={styles.emptyPhotos}>
               <ImageIcon size={48} color="#9ca3af" />
-              <Text style={styles.emptyPhotosText}>No additional photos yet</Text>
+              <Text style={styles.emptyPhotosText}>Пока нет дополнительных фото</Text>
               <Text style={styles.emptyPhotosSubtext}>
-                Add detailed photos of this tree using the button above
+                Добавьте детальные фото этого дерева, используя кнопку выше
               </Text>
             </View>
           )}
@@ -506,7 +506,7 @@ export default function TreeDetailScreen() {
 
         <View style={styles.descriptionContainer}>
           <View style={styles.descriptionHeader}>
-            <Text style={styles.sectionTitle}>AI Analysis</Text>
+            <Text style={styles.sectionTitle}>ИИ Анализ</Text>
             <TouchableOpacity
               style={[
                 styles.processAIButton,
@@ -517,20 +517,20 @@ export default function TreeDetailScreen() {
             >
               <Wand2 size={20} color="#ffffff" />
               <Text style={styles.processAIButtonText}>
-                {generatingDescription ? 'Processing...' : 'Process with AI'}
+                {generatingDescription ? 'Обработка...' : 'Обработать ИИ'}
               </Text>
             </TouchableOpacity>
           </View>
           
           <View style={styles.analysisTable}>
             <View style={styles.analysisRow}>
-              <Text style={styles.analysisLabel}>Taxon name:</Text>
+              <Text style={styles.analysisLabel}>Название таксона:</Text>
               <View style={styles.analysisValue}>
                 {tree.taxonName ? (
                   <Text style={styles.analysisValueText}>{tree.taxonName}</Text>
                 ) : (
                   <View style={styles.placeholderContainer}>
-                    <Text style={styles.placeholderText}>Run AI</Text>
+                    <Text style={styles.placeholderText}>Запустить ИИ</Text>
                     <Text style={styles.placeholderIcon}>✨</Text>
                   </View>
                 )}
@@ -538,13 +538,13 @@ export default function TreeDetailScreen() {
             </View>
             
             <View style={styles.analysisRow}>
-              <Text style={styles.analysisLabel}>Text description:</Text>
+              <Text style={styles.analysisLabel}>Текстовое описание:</Text>
               <View style={styles.analysisValue}>
                 {tree.description ? (
                   <Text style={styles.analysisValueText}>{tree.description}</Text>
                 ) : (
                   <View style={styles.placeholderContainer}>
-                    <Text style={styles.placeholderText}>Run AI</Text>
+                    <Text style={styles.placeholderText}>Запустить ИИ</Text>
                     <Text style={styles.placeholderIcon}>✨</Text>
                   </View>
                 )}
@@ -555,7 +555,7 @@ export default function TreeDetailScreen() {
 
         {/* Defects Section */}
         <View style={styles.defectsContainer}>
-          <Text style={styles.sectionTitle}>Defects</Text>
+          <Text style={styles.sectionTitle}>Дефекты</Text>
           
           {defects.length > 0 ? (
             <View style={styles.defectsContent}>
@@ -600,9 +600,9 @@ export default function TreeDetailScreen() {
             </View>
           ) : (
             <View style={styles.emptyDefects}>
-              <Text style={styles.emptyDefectsText}>No defects detected yet</Text>
+              <Text style={styles.emptyDefectsText}>Дефекты пока не обнаружены</Text>
               <Text style={styles.emptyDefectsSubtext}>
-                Run AI analysis to detect potential issues
+                Запустите ИИ анализ для обнаружения потенциальных проблем
               </Text>
             </View>
           )}
@@ -848,10 +848,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f3f4f6',
   },
   analysisLabel: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#374151',
     fontWeight: '500',
-    width: 120,
+    width: 140,
     flexShrink: 0,
   },
   analysisValue: {
@@ -987,10 +987,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   defectTypeTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#374151',
     textTransform: 'capitalize',
+    flexWrap: 'wrap',
   },
   defectCropsContainer: {
     flexDirection: 'column',

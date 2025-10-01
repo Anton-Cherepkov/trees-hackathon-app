@@ -42,7 +42,7 @@ export default function TreeListScreen() {
       const assets = await Asset.loadAsync(require('@/assets/best-yolov11s-tune-no-freeze-no-single-cls.onnx'));
       const modelUri = assets[0].localUri;
       if (!modelUri) {
-        Alert.alert('Failed to get model URI', `${assets[0]}`);
+        Alert.alert('Не удалось получить URI модели', `${assets[0]}`);
         return;
       }
       
@@ -53,15 +53,15 @@ export default function TreeListScreen() {
       yoloModel = await ort.InferenceSession.create(modelPath);
       setModelLoaded(true);
       Alert.alert(
-        'YOLO Model Loaded Successfully',
-        `Input names: ${yoloModel.inputNames.join(', ')}\nOutput names: ${yoloModel.outputNames.join(', ')}`
+        'Модель YOLO успешно загружена',
+        `Входные имена: ${yoloModel.inputNames.join(', ')}\nВыходные имена: ${yoloModel.outputNames.join(', ')}`
       );
       console.log('YOLO model loaded successfully');
       console.log('Input names:', yoloModel.inputNames);
       console.log('Output names:', yoloModel.outputNames);
     } catch (error) {
       console.error('Failed to load YOLO model:', error);
-      Alert.alert('Failed to Load Model', `Error: ${error}`);
+      Alert.alert('Не удалось загрузить модель', `Ошибка: ${error}`);
     } finally {
       setModelLoading(false);
     }
@@ -80,7 +80,7 @@ export default function TreeListScreen() {
       await loadTrees();
     } catch (error) {
       console.error('Database initialization error:', error);
-      Alert.alert('Error', 'Failed to initialize database. Please restart the app.');
+      Alert.alert('Ошибка', 'Не удалось инициализировать базу данных. Перезапустите приложение.');
       setLoading(false);
     }
   };
@@ -90,7 +90,7 @@ export default function TreeListScreen() {
       const allTrees = await treeDatabase.getAllTrees();
       setTrees(allTrees);
     } catch (error) {
-      Alert.alert('Error', 'Failed to load trees');
+      Alert.alert('Ошибка', 'Не удалось загрузить деревья');
       console.error('Load trees error:', error);
     } finally {
       setLoading(false);
@@ -118,11 +118,11 @@ export default function TreeListScreen() {
         </Text>
         {item.taxonName && (
           <Text style={styles.treeTaxon} numberOfLines={2}>
-            Taxon: {item.taxonName}
+            Таксон: {item.taxonName}
           </Text>
         )}
         <Text style={styles.additionalCount}>
-          {item.additionalImages.length} additional photos
+          {item.additionalImages.length} дополнительных фото
         </Text>
       </View>
     </TouchableOpacity>
@@ -131,9 +131,9 @@ export default function TreeListScreen() {
   const EmptyState = () => (
     <View style={styles.emptyState}>
       <TreePine size={64} color="#9ca3af" />
-      <Text style={styles.emptyTitle}>No Trees Yet</Text>
+      <Text style={styles.emptyTitle}>Пока нет деревьев</Text>
       <Text style={styles.emptyDescription}>
-        Start by capturing trees using the camera tab
+        Начните с фотографирования деревьев, используя вкладку камеры
       </Text>
     </View>
   );
@@ -142,7 +142,7 @@ export default function TreeListScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading trees...</Text>
+          <Text style={styles.loadingText}>Загрузка деревьев...</Text>
         </View>
       </SafeAreaView>
     );
@@ -151,8 +151,8 @@ export default function TreeListScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Urban Trees</Text>
-        <Text style={styles.subtitle}>{trees.length} trees recorded</Text>
+        <Text style={styles.title}>Городские деревья</Text>
+        <Text style={styles.subtitle}>Записано {trees.length} деревьев</Text>
       </View>
 
       <FlatList

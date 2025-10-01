@@ -19,22 +19,22 @@ export default function SettingsScreen() {
 
   const clearDatabase = async () => {
     Alert.alert(
-      'Clear All Data',
-      'Are you sure you want to delete all tree records? This action cannot be undone.',
+      'Очистить все данные',
+      'Вы уверены, что хотите удалить все записи о деревьях? Это действие нельзя отменить.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Отмена', style: 'cancel' },
         {
-          text: 'Delete All',
+          text: 'Удалить все',
           style: 'destructive',
           onPress: async () => {
             try {
               await treeDatabase.clearAllTrees();
-              Alert.alert('Success', 'All tree records have been deleted');
+              Alert.alert('Успешно', 'Все записи о деревьях были удалены');
               // Navigate back to main screen to refresh the list
               router.push('/(tabs)');
             } catch (error) {
               console.error('Clear database error:', error);
-              Alert.alert('Error', 'Failed to clear data. Please try again.');
+              Alert.alert('Ошибка', 'Не удалось очистить данные. Попробуйте снова.');
             }
           },
         },
@@ -45,22 +45,22 @@ export default function SettingsScreen() {
 
   const showAppInfo = () => {
     Alert.alert(
-      'Urban Tree Management',
-      'Version 1.0.0\n\nA mobile application for city tree care personnel to document and manage urban tree records.\n\nDeveloped for field work with offline capability.',
-      [{ text: 'OK' }]
+      'Управление городскими деревьями',
+      'Версия 1.0.0\n\nМобильное приложение для персонала по уходу за городскими деревьями для документирования и управления записями о городских деревьях.\n\nРазработано для полевых работ с возможностью работы в автономном режиме.',
+      [{ text: 'ОК' }]
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.subtitle}>Manage your app preferences</Text>
+        <Text style={styles.title}>Настройки</Text>
+        <Text style={styles.subtitle}>Управление настройками приложения</Text>
       </View>
 
       <View style={styles.content}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Data Management</Text>
+          <Text style={styles.sectionTitle}>Управление данными</Text>
           
           <TouchableOpacity style={styles.settingItem} onPress={clearDatabase}>
             <View style={styles.settingItemLeft}>
@@ -68,9 +68,9 @@ export default function SettingsScreen() {
                 <Trash2 size={20} color="#ffffff" />
               </View>
               <View>
-                <Text style={styles.settingItemTitle}>Clear All Data</Text>
+                <Text style={styles.settingItemTitle}>Очистить все данные</Text>
                 <Text style={styles.settingItemSubtitle}>
-                  Delete all tree records permanently
+                  Удалить все записи о деревьях навсегда
                 </Text>
               </View>
             </View>
@@ -78,7 +78,7 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Application</Text>
+          <Text style={styles.sectionTitle}>Приложение</Text>
           
           <TouchableOpacity style={styles.settingItem} onPress={showAppInfo}>
             <View style={styles.settingItemLeft}>
@@ -86,9 +86,9 @@ export default function SettingsScreen() {
                 <Info size={20} color="#ffffff" />
               </View>
               <View>
-                <Text style={styles.settingItemTitle}>About</Text>
+                <Text style={styles.settingItemTitle}>О программе</Text>
                 <Text style={styles.settingItemSubtitle}>
-                  App version and information
+                  Версия приложения и информация
                 </Text>
               </View>
             </View>
