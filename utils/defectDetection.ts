@@ -9,8 +9,32 @@ import { DefectRecord } from '@/database/treeDatabase';
 
 export interface DefectDetectionResult {
   image_key: string;
-  defect_bbox: [number, number, number, number]; // [xtl, ytl, xbr, ybr]
+  defect_bbox: [number, number, number, number]; // [xtl, ytl, xbr, ybr] as relative coordinates
   defect_type: string;
+}
+
+// API request/response interfaces
+export interface ImageKeyPair {
+  key: string;
+  image_base64: string;
+}
+
+export interface DetectionRequest {
+  requests: ImageKeyPair[];
+}
+
+export interface ObjectBoxResponse {
+  key: string;
+  label: string;
+  confidence: number;
+  x1: number; // relative coordinate (0.0-1.0)
+  y1: number; // relative coordinate (0.0-1.0)
+  x2: number; // relative coordinate (0.0-1.0)
+  y2: number; // relative coordinate (0.0-1.0)
+}
+
+export interface DetectionResponse {
+  results: ObjectBoxResponse[];
 }
 
 export interface ImageData {
@@ -64,58 +88,63 @@ export async function prepareImagesForDefectDetection(
 }
 
 /**
- * Mock defect detection API call
- * In a real implementation, this would send the images to a remote server
+ * Real defect detection API call to remote server
  */
 export async function detectDefects(images: ImageData): Promise<DefectDetectionResult[]> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // Mock response - simulate finding defects in some images
-  const mockDefects: DefectDetectionResult[] = [];
-  
-  // Add some mock defects based on available images
-  const imageKeys = Object.keys(images);
-  
-  if (imageKeys.includes('tree_crop')) {
-    // First hollow defect in tree crop
-    mockDefects.push({
-      image_key: 'tree_crop',
-      defect_bbox: [0.2, 0.3, 0.4, 0.6], // [xtl, ytl, xbr, ybr] as relative coordinates
-      defect_type: 'hollow'
+  try {
+    console.log('Sending images to defect detection API...');
+    
+    // Prepare request data
+    const requests: ImageKeyPair[] = Object.entries(images).map(([key, base64Data]) => ({
+      key,
+      image_base64: base64Data
+    }));
+    
+    const requestBody: DetectionRequest = {
+      requests
+    };
+    
+    console.log('API request prepared with', requests.length, 'images');
+    
+    // Make API call
+    const response = await fetch('http://203.31.40.21:8123/detect', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
     });
+    
+    if (!response.ok) {
+      throw new Error(`API request failed with status: ${response.status} ${response.statusText}`);
+    }
+    
+    const detectionResponse: DetectionResponse = await response.json();
+    console.log('API response received:', detectionResponse);
+    
+    // Convert API response to our format and filter by confidence
+    const defects: DefectDetectionResult[] = [];
+    
+    for (const result of detectionResponse.results) {
+      // Only process results with confidence > 0.25
+      if (result.confidence > 0.25) {
+        // API returns relative coordinates directly (0.0-1.0 range)
+        // No need to convert from absolute to relative coordinates
+        defects.push({
+          image_key: result.key,
+          defect_bbox: [result.x1, result.y1, result.x2, result.y2], // [xtl, ytl, xbr, ybr] as relative coordinates
+          defect_type: result.label
+        });
+      }
+    }
+    
+    console.log('Defect detection completed:', defects);
+    return defects;
+    
+  } catch (error) {
+    console.error('Error calling defect detection API:', error);
+    throw error;
   }
-  
-  if (imageKeys.includes('additional_0')) {
-    // Second hollow defect in first additional image
-    mockDefects.push({
-      image_key: 'additional_0',
-      defect_bbox: [0.1, 0.1, 0.3, 0.4],
-      defect_type: 'hollow'
-    });
-  }
-  
-  if (imageKeys.includes('additional_1')) {
-    // Crack defect in second additional image
-    mockDefects.push({
-      image_key: 'additional_1',
-      defect_bbox: [0.5, 0.2, 0.8, 0.5],
-      defect_type: 'crack'
-    });
-  }
-  
-  // If we have more images, add more hollow defects to reach the target count
-  if (imageKeys.length > 2 && imageKeys.includes('additional_2')) {
-    // Additional hollow defect if third image exists
-    mockDefects.push({
-      image_key: 'additional_2',
-      defect_bbox: [0.3, 0.4, 0.6, 0.7],
-      defect_type: 'hollow'
-    });
-  }
-  
-  console.log('Mock defect detection completed:', mockDefects);
-  return mockDefects;
 }
 
 /**
@@ -227,9 +256,19 @@ export async function processDefectsForTree(
       let originalImageUri: string;
       if (defect.image_key === 'tree_crop') {
         originalImageUri = treeCropPath;
+      } else if (defect.image_key.startsWith('additional_')) {
+        // Extract the index from the key (e.g., "additional_0" -> "0")
+        const indexMatch = defect.image_key.match(/^additional_(\d+)$/);
+        if (indexMatch) {
+          const additionalIndex = parseInt(indexMatch[1]);
+          originalImageUri = additionalImages[additionalIndex];
+        } else {
+          console.error('Could not parse additional image index from key:', defect.image_key);
+          continue; // Skip this defect
+        }
       } else {
-        const additionalIndex = parseInt(defect.image_key.replace('additional_', ''));
-        originalImageUri = additionalImages[additionalIndex];
+        console.error('Unknown image key format:', defect.image_key);
+        continue; // Skip this defect
       }
       
       // Crop the defect

@@ -372,7 +372,7 @@ export default function TreeDetectionScreen() {
           <>
             <View style={styles.detectionInfo}>
               <Text style={styles.detectionTitle}>
-                Обнаружено {detectedTrees.length} {detectedTrees.length === 1 ? 'дерево' : detectedTrees.length < 5 ? 'дерева' : 'деревьев'}
+                Деревьев обнаружено: {detectedTrees.length}
               </Text>
               <Text style={styles.detectionSubtitle}>
                 Нажмите на деревья, чтобы выбрать/отменить выбор для сохранения
@@ -423,7 +423,7 @@ export default function TreeDetectionScreen() {
               <Text style={styles.saveButtonText}>
                 {saving
                   ? 'Сохранение...'
-                  : `Сохранить ${detectedTrees.filter(t => t.selected).length} ${detectedTrees.filter(t => t.selected).length === 1 ? 'дерево' : detectedTrees.filter(t => t.selected).length < 5 ? 'дерева' : 'деревьев'}`
+                  : 'Сохранить'
                 }
               </Text>
             </TouchableOpacity>

@@ -64,10 +64,6 @@ export default function TreeListScreen() {
       
       yoloModel = await ort.InferenceSession.create(modelPath);
       setModelLoaded(true);
-      Alert.alert(
-        'Модель YOLO успешно загружена',
-        `Входные имена: ${yoloModel.inputNames.join(', ')}\nВыходные имена: ${yoloModel.outputNames.join(', ')}`
-      );
       console.log('YOLO model loaded successfully');
       console.log('Input names:', yoloModel.inputNames);
       console.log('Output names:', yoloModel.outputNames);
@@ -292,7 +288,7 @@ export default function TreeListScreen() {
               `).join('')}
             </div>
           </td>
-          <td class="description-col">to be added</td>
+          <td class="description-col">${tree.description || 'Описание не сгенерировано'}</td>
           <td class="defects-col">
             <div class="defect-container">
               ${tree.defects && tree.defects.length > 0 ? tree.defects.map((defect, defectIndex) => `
@@ -451,8 +447,8 @@ export default function TreeListScreen() {
             <Text style={styles.title}>Городские деревья</Text>
             <Text style={styles.subtitle}>
               {isSelectionMode 
-                ? `Режим выбора: ${selectedTrees.size} из ${trees.length} деревьев`
-                : `Записано ${trees.length} деревьев`
+                ? `Выбрано деревьев: ${selectedTrees.size} из ${trees.length}`
+                : `Деревьев в базе: ${trees.length}`
               }
             </Text>
           </View>

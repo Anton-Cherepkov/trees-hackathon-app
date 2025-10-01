@@ -280,6 +280,13 @@ export default function TreeDetailScreen() {
       // Extract taxon name only
       const taxonName = extractTaxonName(classificationResult);
       
+      // Delete all existing defects for this tree before processing new ones
+      console.log('Deleting existing defects for tree:', tree.id);
+      await treeDatabase.deleteDefectsByTreeId(tree.id!);
+      
+      // Clear defects from local state
+      setDefects([]);
+      
       // Process defects for this tree
       console.log('Starting defect detection for tree:', tree.id);
       const defectRecords = await processDefectsForTree(
@@ -298,23 +305,43 @@ export default function TreeDetailScreen() {
         });
       }
       
-      // Update the description in the UI (leave empty for now)
-      setDescription("");
+      // Generate description based on detected defects
+      let generatedDescription = "";
+      if (defectRecords.length === 0) {
+        generatedDescription = "Дерево без повреждений";
+      } else {
+        // Group defects by type and count them
+        const defectCounts = defectRecords.reduce((acc, defect) => {
+          const type = defect.defect_type;
+          acc[type] = (acc[type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        
+        // Create description text
+        const defectDescriptions = Object.entries(defectCounts).map(([type, count]) => {
+          return `${type}: ${count} шт.`;
+        });
+        
+        generatedDescription = `Имеются следующие дефекты: ${defectDescriptions.join(', ')}`;
+      }
       
-      // Update the tree record in the database with only taxon name, description stays empty
+      // Update the description in the UI
+      setDescription(generatedDescription);
+      
+      // Update the tree record in the database with taxon name and generated description
       await treeDatabase.updateTree(tree.id!, { 
-        description: "",
+        description: generatedDescription,
         taxonName: taxonName || undefined
       });
       
       // Update the local tree state
-      setTree({ ...tree, description: "", taxonName: taxonName || undefined });
+      setTree({ ...tree, description: generatedDescription, taxonName: taxonName || undefined });
       
       // Update defects state with the inserted records that have IDs
       setDefects(insertedDefects);
       
       console.log('Description and defects generated and saved successfully');
-      Alert.alert('Успешно', `Анализ дерева завершён! Найдено ${defectRecords.length} дефектов.`);
+      Alert.alert('Успешно', `Анализ дерева завершён! Найдено ${defectRecords.length} дефектов. Описание сгенерировано автоматически.`);
       
     } catch (error) {
       console.error('Error generating description:', error);
@@ -881,6 +908,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: 12,
+    flex: 1,
+    marginRight: 12,
   },
   photosContainer: {
     backgroundColor: '#ffffff',
@@ -895,6 +924,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
+    flexWrap: 'wrap',
   },
   addPhotoButton: {
     flexDirection: 'row',
