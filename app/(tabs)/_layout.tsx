@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
-import { TreePine, Camera, Settings } from 'lucide-react-native';
-import { Platform } from 'react-native';
+import { TreePine, Camera, Settings, BookOpen } from 'lucide-react-native';
+import { Platform, Text } from 'react-native';
 
 export default function TabLayout() {
   return (
@@ -31,12 +31,27 @@ export default function TabLayout() {
         name="capture"
         options={{
           title: 'Съёмка',
-          tabBarIcon: ({ size, color }) => (
-            <Camera size={size} color={color} />
+          tabBarIcon: ({ size, color, focused }) => (
+            <Camera size={size} color={focused ? "#ef4444" : "#fca5a5"} />
           ),
-          tabBarLabelStyle: {
-            fontWeight: 'bold',
-          },
+          tabBarLabel: ({ focused, children }) => (
+            <Text style={{ 
+              fontWeight: 'bold', 
+              color: focused ? "#ef4444" : "#fca5a5",
+              fontSize: 12,
+            }}>
+              {children}
+            </Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="instructions"
+        options={{
+          title: 'Инструкция',
+          tabBarIcon: ({ size, color }) => (
+            <BookOpen size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
