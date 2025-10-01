@@ -8,12 +8,8 @@ import {
   Alert,
 } from 'react-native';
 import {
-  Database,
   Info,
   Trash2,
-  Download,
-  Upload,
-  Settings as SettingsIcon,
 } from 'lucide-react-native';
 import { treeDatabase } from '@/database/treeDatabase';
 import { useRouter } from 'expo-router';
@@ -35,7 +31,7 @@ export default function SettingsScreen() {
               await treeDatabase.clearAllTrees();
               Alert.alert('Success', 'All tree records have been deleted');
               // Navigate back to main screen to refresh the list
-              router.push('/(tabs)/');
+              router.push('/(tabs)');
             } catch (error) {
               console.error('Clear database error:', error);
               Alert.alert('Error', 'Failed to clear data. Please try again.');
@@ -46,13 +42,6 @@ export default function SettingsScreen() {
     );
   };
 
-  const exportData = () => {
-    Alert.alert('Coming Soon', 'Data export functionality will be available in a future update.');
-  };
-
-  const importData = () => {
-    Alert.alert('Coming Soon', 'Data import functionality will be available in a future update.');
-  };
 
   const showAppInfo = () => {
     Alert.alert(
@@ -73,34 +62,6 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data Management</Text>
           
-          <TouchableOpacity style={styles.settingItem} onPress={exportData}>
-            <View style={styles.settingItemLeft}>
-              <View style={[styles.iconContainer, { backgroundColor: '#3b82f6' }]}>
-                <Download size={20} color="#ffffff" />
-              </View>
-              <View>
-                <Text style={styles.settingItemTitle}>Export Data</Text>
-                <Text style={styles.settingItemSubtitle}>
-                  Export all tree records to a file
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.settingItem} onPress={importData}>
-            <View style={styles.settingItemLeft}>
-              <View style={[styles.iconContainer, { backgroundColor: '#10b981' }]}>
-                <Upload size={20} color="#ffffff" />
-              </View>
-              <View>
-                <Text style={styles.settingItemTitle}>Import Data</Text>
-                <Text style={styles.settingItemSubtitle}>
-                  Import tree records from a file
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.settingItem} onPress={clearDatabase}>
             <View style={styles.settingItemLeft}>
               <View style={[styles.iconContainer, { backgroundColor: '#ef4444' }]}>
@@ -134,13 +95,6 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.infoContainer}>
-          <Database size={48} color="#9ca3af" />
-          <Text style={styles.infoTitle}>Local Storage</Text>
-          <Text style={styles.infoDescription}>
-            All data is stored locally on your device. No internet connection required for basic functionality.
-          </Text>
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -209,27 +163,5 @@ const styles = StyleSheet.create({
   settingItemSubtitle: {
     fontSize: 14,
     color: '#6b7280',
-  },
-  infoContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    marginTop: 20,
-  },
-  infoTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  infoDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 20,
   },
 });

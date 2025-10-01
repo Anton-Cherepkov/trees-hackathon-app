@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Camera, Image as ImageIcon, Upload } from 'lucide-react-native';
+import { Camera, Image as ImageIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 
@@ -156,17 +156,6 @@ export default function CaptureScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.infoContainer}>
-          <View style={styles.infoItem}>
-            <Upload size={20} color="#6b7280" />
-            <Text style={styles.infoText}>
-              Photos are processed locally on your device
-            </Text>
-          </View>
-          <Text style={styles.infoNote}>
-            After selecting an image, our AI will automatically detect trees and allow you to save them to your records.
-          </Text>
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -246,28 +235,5 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 24,
-  },
-  infoContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginLeft: 12,
-    fontWeight: '500',
-  },
-  infoNote: {
-    fontSize: 14,
-    color: '#9ca3af',
-    lineHeight: 20,
   },
 });
