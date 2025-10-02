@@ -4,7 +4,11 @@
 Скачайте готовый apk-файл [ai-dendrolog-silk-road.apk](https://disk.yandex.ru/d/Wa0jW8RNL9MSlQ) на мобильный телефон, запустите и следуйте инструкциям по установке.
 
 ## Демонстрация приложения
-![](video_example.mp4)
+
+<video width="500" height="480" controls>
+  <source src="./video_example.mp4" type="video/mp4">
+</video>
+
 
 ## Как собрать apk-файл из исходного кода
 1. Склонируйте репозиторий
