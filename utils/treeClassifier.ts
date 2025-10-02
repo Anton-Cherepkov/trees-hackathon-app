@@ -84,6 +84,16 @@ export async function classifyTreeImage(imagePath: string): Promise<Classificati
     return result;
   } catch (error) {
     console.error('Error classifying tree image:', error);
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('Network request failed')) {
+        throw new Error('Network request failed. Please check your internet connection and ensure the server is accessible.');
+      } else if (error.message.includes('Failed to fetch')) {
+        throw new Error('Failed to connect to the server. Please check your internet connection.');
+      }
+    }
+    
     throw error;
   }
 }
