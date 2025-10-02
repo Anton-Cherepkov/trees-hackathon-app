@@ -1,14 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  Image,
+  TouchableOpacity,
+  Modal,
+  Dimensions,
 } from 'react-native';
-import { Camera, Image as ImageIcon, Wand2, FileText, TreePine, CheckCircle, AlertCircle } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, Wand2, FileText, TreePine, CheckCircle, AlertCircle, X } from 'lucide-react-native';
 
 export default function InstructionsScreen() {
+  const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [modalImageSource, setModalImageSource] = useState(null);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -19,244 +26,151 @@ export default function InstructionsScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 1. Добавление новых деревьев */}
+        {/* Добавление растения */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Camera size={24} color="#22c55e" />
-            <Text style={styles.sectionTitle}>1. Процесс добавления новых деревьев</Text>
+            <Text style={styles.sectionTitle}>Добавление растения</Text>
           </View>
           
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>1</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Съёмка или выбор фотографии</Text>
-              <Text style={styles.stepDescription}>
-                • Нажмите на красную кнопку "Сфотографировать" для съёмки через камеру{'\n'}
-                • Или выберите "Выбрать из галереи" для загрузки существующего фото{'\n'}
-                • Рекомендуется делать фото в хорошем освещении с чёткой видимостью деревьев
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.instructionText}>
+            Сфотографируйте дерево или несколько деревьев общим планом. Если деревьев несколько, то выберите такой ракурс, чтобы они не перегораживали друг друга.
+          </Text>
 
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>2</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Автоматическое обнаружение деревьев</Text>
-              <Text style={styles.stepDescription}>
-                • Приложение автоматически анализирует изображение с помощью ИИ{'\n'}
-                • YOLO-модель находит деревья с уверенностью более 50%{'\n'}
-                • На экране появятся красные рамки вокруг обнаруженных деревьев
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.exampleTitle}>Пример хорошего ракурса:</Text>
+          <TouchableOpacity 
+            style={styles.imageContainer}
+            onPress={() => {
+              setModalImageSource(require('@/assets/images/detection_good_example_1.jpg'));
+              setImageModalVisible(true);
+            }}
+          >
+            <Image 
+              source={require('@/assets/images/detection_good_example_1.jpg')}
+              style={styles.exampleImage}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
 
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>3</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Выбор деревьев для сохранения</Text>
-              <Text style={styles.stepDescription}>
-                • Нажмите на зелёные галочки рядом с нужными деревьями{'\n'}
-                • Выбранные деревья будут выделены зелёным цветом{'\n'}
-                • Нажмите "Сохранить выбранные" для добавления в базу данных
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.badExampleTitle}>Пример плохого ракурса:</Text>
+          <TouchableOpacity 
+            style={styles.imageContainer}
+            onPress={() => {
+              setModalImageSource(require('@/assets/images/detection_bad_example_1.jpg'));
+              setImageModalVisible(true);
+            }}
+          >
+            <Image 
+              source={require('@/assets/images/detection_bad_example_1.jpg')}
+              style={styles.exampleImage}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
 
-          <View style={styles.tipBox}>
-            <AlertCircle size={20} color="#3b82f6" />
-            <Text style={styles.tipText}>
-              <Text style={styles.tipTitle}>Совет:</Text> Для лучшего качества обнаружения делайте фото при хорошем освещении, избегайте сильных теней и размытых изображений.
-            </Text>
-          </View>
+          <Text style={styles.instructionText}>
+            Дождитесь распознавания деревьев детектором и выберите те, которые вы хотите добавить в базу данных для дальнейшего анализа. Этот шаг работает без интернета.
+          </Text>
+
+          <Text style={styles.instructionText}>
+            Если у дерева могут быть повреждения, которые плохо видно с общего плана, то вы можете перейти в карточку конкретного дерева и добавить дополнительные фото вблизи. Постарайтесь сделать снимок так, чтобы рядом стоящие деревья не попали в кадр.
+          </Text>
+
+          <Text style={styles.exampleTitle}>Пример хорошего доп. фото:</Text>
+          <TouchableOpacity 
+            style={styles.imageContainer}
+            onPress={() => {
+              setModalImageSource(require('@/assets/images/additional_good_example_1.jpg'));
+              setImageModalVisible(true);
+            }}
+          >
+            <Image 
+              source={require('@/assets/images/additional_good_example_1.jpg')}
+              style={styles.exampleImage}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
         </View>
 
-        {/* 2. Загрузка дополнительных фотографий */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <ImageIcon size={24} color="#22c55e" />
-            <Text style={styles.sectionTitle}>2. Процесс загрузки дополнительных фотографий</Text>
-          </View>
-          
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>1</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Открытие детальной страницы дерева</Text>
-              <Text style={styles.stepDescription}>
-                • Перейдите на вкладку "Деревья" в нижнем меню{'\n'}
-                • Нажмите на любое сохранённое дерево для открытия детальной страницы
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>2</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Добавление дополнительных фото</Text>
-              <Text style={styles.stepDescription}>
-                • Нажмите кнопку "📷" рядом с разделом "Дополнительные фотографии"{'\n'}
-                • Выберите "Сфотографировать" или "Выбрать из галереи"{'\n'}
-                • Фото автоматически сохранится и появится в списке
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>3</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Управление фотографиями</Text>
-              <Text style={styles.stepDescription}>
-                • Для удаления фото нажмите на кнопку "🗑️" рядом с изображением{'\n'}
-                • Для увеличения фото нажмите на само изображение{'\n'}
-                • Дополнительные фото используются для более точного анализа дефектов
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 3. Запуск ИИ анализа */}
+        {/* Генерация описания */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Wand2 size={24} color="#22c55e" />
-            <Text style={styles.sectionTitle}>3. Как запустить ИИ-анализ</Text>
+            <Text style={styles.sectionTitle}>Генерация описания</Text>
           </View>
           
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>1</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Открытие детальной страницы дерева</Text>
-              <Text style={styles.stepDescription}>
-                • Перейдите на вкладку "Деревья"{'\n'}
-                • Выберите дерево для анализа из списка
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.instructionText}>
+            Когда устройство подключено к интернету, вы можете запустить анализ искусственным интеллектом, который произведет классификацию вида растения и обнаружит дефекты (трещина, дупло, гниль, язва). Для этого перейдите в карточку дерева и нажмите на кнопку Обработать ИИ.
+          </Text>
 
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>2</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Запуск классификации и анализа дефектов</Text>
-              <Text style={styles.stepDescription}>
-                • Нажмите кнопку "🪄 Сгенерировать описание" в разделе "Описание дерева"{'\n'}
-                • Приложение автоматически выполнит следующие действия:{'\n'}
-                • Классификация вида дерева с помощью ИИ{'\n'}
-                • Анализ дефектов на основном и дополнительных фото{'\n'}
-                • Генерация подробного описания на основе результатов
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>3</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Просмотр результатов анализа</Text>
-              <Text style={styles.stepDescription}>
-                • В разделе "Описание" появится сгенерированное описание дерева{'\n'}
-                • В разделе "Дефекты" отобразятся обнаруженные проблемы с фотографиями{'\n'}
-                • Каждый дефект содержит тип проблемы и обрезанное изображение
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.warningBox}>
-            <AlertCircle size={20} color="#ef4444" />
-            <Text style={styles.warningText}>
-              <Text style={styles.warningTitle}>Важно:</Text> Процесс ИИ-анализа может занять несколько минут. Убедитесь, что у вас стабильное интернет-соединение.
-            </Text>
-          </View>
+          <TouchableOpacity 
+            style={styles.imageContainer}
+            onPress={() => {
+              setModalImageSource(require('@/assets/images/run_ai_button_example.png'));
+              setImageModalVisible(true);
+            }}
+          >
+            <Image 
+              source={require('@/assets/images/run_ai_button_example.png')}
+              style={styles.exampleImage}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
         </View>
 
-        {/* 4. Экспорт данных */}
+        {/* Формирование отчета */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <FileText size={24} color="#22c55e" />
-            <Text style={styles.sectionTitle}>4. Как экспортировать данные</Text>
+            <Text style={styles.sectionTitle}>Формирование отчета</Text>
           </View>
           
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>1</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Выбор деревьев для экспорта</Text>
-              <Text style={styles.stepDescription}>
-                • Перейдите на вкладку "Деревья"{'\n'}
-                • Нажмите на зелёные галочки рядом с нужными деревьями{'\n'}
-                • Выбранные деревья будут выделены зелёным цветом
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.instructionText}>
+            Для формирования отчета перейдите на главный экран, выберите необходимые растения с помощью чек-боксов и нажмите кнопку Экспорт.
+          </Text>
 
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>2</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Создание PDF-отчёта</Text>
-              <Text style={styles.stepDescription}>
-                • Нажмите красную кнопку "Экспорт" в правом верхнем углу{'\n'}
-                • Приложение создаст подробный PDF-отчёт со всеми данными{'\n'}
-                • В отчёте будут включены: фотографии, описания, дефекты, даты
-              </Text>
-            </View>
-          </View>
+          <TouchableOpacity 
+            style={styles.imageContainer}
+            onPress={() => {
+              setModalImageSource(require('@/assets/images/export_button_example.png'));
+              setImageModalVisible(true);
+            }}
+          >
+            <Image 
+              source={require('@/assets/images/export_button_example.png')}
+              style={styles.exampleImage}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
 
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>3</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Сохранение и использование отчёта</Text>
-              <Text style={styles.stepDescription}>
-                • PDF-файл автоматически сохранится на устройстве{'\n'}
-                • Путь к файлу будет показан в уведомлении{'\n'}
-                • Файл можно найти в папке документов устройства{'\n'}
-                • Отчёт можно отправить по email или сохранить в облаке
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.infoBox}>
-            <CheckCircle size={20} color="#22c55e" />
-            <Text style={styles.infoText}>
-              <Text style={styles.infoTitle}>Информация:</Text> PDF-отчёт содержит профессионально оформленную таблицу с фотографиями, описаниями деревьев, обнаруженными дефектами и датами съёмки.
-            </Text>
-          </View>
-        </View>
-
-        {/* Дополнительная информация */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <TreePine size={24} color="#22c55e" />
-            <Text style={styles.sectionTitle}>Дополнительная информация</Text>
-          </View>
-          
-          <View style={styles.infoList}>
-            <Text style={styles.infoItem}>• Все данные сохраняются локально в базе данных SQLite</Text>
-            <Text style={styles.infoItem}>• ИИ-модели работают на устройстве для обеспечения конфиденциальности</Text>
-            <Text style={styles.infoItem}>• Приложение поддерживает работу без интернета для базовых функций</Text>
-            <Text style={styles.infoItem}>• Для ИИ-анализа требуется подключение к интернету</Text>
-            <Text style={styles.infoItem}>• Все фотографии оптимизируются для экономии места</Text>
-          </View>
+          <Text style={styles.instructionText}>
+            В результате вы получите отчет в формате PDF, который можно изучить или экспортировать.
+          </Text>
         </View>
       </ScrollView>
+
+      {/* Full-screen image modal */}
+      <Modal
+        visible={imageModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setImageModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalCloseButton}
+            onPress={() => setImageModalVisible(false)}
+          >
+            <X size={24} color="#ffffff" />
+          </TouchableOpacity>
+          {modalImageSource && (
+            <Image 
+              source={modalImageSource}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -310,102 +224,54 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     flex: 1,
   },
-  step: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  stepNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#22c55e',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  stepNumberText: {
-    color: '#ffffff',
+  instructionText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    color: '#374151',
+    lineHeight: 24,
+    marginBottom: 16,
   },
-  stepContent: {
-    flex: 1,
-  },
-  stepTitle: {
+  exampleTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    color: '#22c55e',
+    marginBottom: 12,
+    marginTop: 8,
+    textAlign: 'center',
   },
-  stepDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
+  badExampleTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ef4444',
+    marginBottom: 12,
+    marginTop: 8,
+    textAlign: 'center',
   },
-  tipBox: {
-    flexDirection: 'row',
-    backgroundColor: '#eff6ff',
-    borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6',
-    padding: 16,
+  imageContainer: {
+    marginBottom: 16,
     borderRadius: 8,
-    marginTop: 16,
+    overflow: 'hidden',
   },
-  tipText: {
+  exampleImage: {
+    width: '100%',
+    height: 200,
+  },
+  modalOverlay: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    color: '#1e40af',
-    lineHeight: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  tipTitle: {
-    fontWeight: 'bold',
+  modalCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    padding: 8,
   },
-  warningBox: {
-    flexDirection: 'row',
-    backgroundColor: '#fef2f2',
-    borderLeftWidth: 4,
-    borderLeftColor: '#ef4444',
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  warningText: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    color: '#dc2626',
-    lineHeight: 20,
-  },
-  warningTitle: {
-    fontWeight: 'bold',
-  },
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: '#f0fdf4',
-    borderLeftWidth: 4,
-    borderLeftColor: '#22c55e',
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  infoText: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    color: '#166534',
-    lineHeight: 20,
-  },
-  infoTitle: {
-    fontWeight: 'bold',
-  },
-  infoList: {
-    marginTop: 16,
-  },
-  infoItem: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 22,
-    marginBottom: 8,
+  fullScreenImage: {
+    width: Dimensions.get('window').width - 40,
+    height: Dimensions.get('window').height - 100,
   },
 });

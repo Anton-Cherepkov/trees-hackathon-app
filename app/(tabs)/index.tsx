@@ -97,6 +97,9 @@ export default function TreeListScreen() {
     try {
       const allTrees = await treeDatabase.getAllTrees();
       setTrees(allTrees);
+      // Clear selection state when loading trees to prevent stale selections
+      setSelectedTrees(new Set());
+      setIsSelectionMode(false);
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось загрузить деревья');
       console.error('Load trees error:', error);
