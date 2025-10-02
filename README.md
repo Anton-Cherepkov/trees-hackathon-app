@@ -5,8 +5,7 @@
 
 ## Демонстрация приложения
 
-![](https://github.com/Anton-Cherepkov/trees-hackathon-app/raw/refs/heads/master/video_example.mp4)
-
+https://github.com/user-attachments/assets/70acccb1-31d5-476f-9f36-326a8ceeb267
 
 ## Как собрать apk-файл из исходного кода
 1. Склонируйте репозиторий
