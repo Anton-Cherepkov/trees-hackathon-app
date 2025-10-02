@@ -78,18 +78,57 @@ export default function TreeListScreen() {
   // Refresh data when screen comes into focus (e.g., after clearing data)
   useFocusEffect(
     useCallback(() => {
-      loadTrees();
+      const loadTreesWithRetry = async () => {
+        const maxRetries = 3;
+        let retryCount = 0;
+        
+        while (retryCount < maxRetries) {
+          try {
+            await loadTrees();
+            return; // Success, exit the function
+          } catch (error) {
+            console.error(`Load trees error (attempt ${retryCount + 1}):`, error);
+            retryCount++;
+            
+            if (retryCount >= maxRetries) {
+              // Only show error alert after all retries failed
+              Alert.alert('Ошибка', 'Не удалось загрузить деревья');
+              return;
+            }
+            
+            // Wait before retrying (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          }
+        }
+      };
+      
+      loadTreesWithRetry();
     }, [])
   );
 
   const initializeDatabase = async () => {
-    try {
-      await treeDatabase.init();
-      await loadTrees();
-    } catch (error) {
-      console.error('Database initialization error:', error);
-      Alert.alert('Ошибка', 'Не удалось инициализировать базу данных. Перезапустите приложение.');
-      setLoading(false);
+    const maxRetries = 3;
+    let retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        await treeDatabase.init();
+        await loadTrees();
+        return; // Success, exit the function
+      } catch (error) {
+        console.error(`Database initialization error (attempt ${retryCount + 1}):`, error);
+        retryCount++;
+        
+        if (retryCount >= maxRetries) {
+          // Only show error alert after all retries failed
+          Alert.alert('Ошибка', 'Не удалось инициализировать базу данных. Перезапустите приложение.');
+          setLoading(false);
+          return;
+        }
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
     }
   };
 
@@ -101,8 +140,12 @@ export default function TreeListScreen() {
       setSelectedTrees(new Set());
       setIsSelectionMode(false);
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось загрузить деревья');
       console.error('Load trees error:', error);
+      // Don't show alert for database locking errors as they are usually temporary
+      // Only show alert for persistent errors that prevent the app from working
+      if (error instanceof Error && !error.message.includes('database is locked')) {
+        Alert.alert('Ошибка', 'Не удалось загрузить деревья');
+      }
     } finally {
       setLoading(false);
     }
@@ -321,9 +364,15 @@ export default function TreeListScreen() {
 </html>
     `;
 
+    // Generate timestamp for filename
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+    const timestamp = `${dateStr}_${timeStr}`;
+    
     const options: PDFOptions = {
       html: htmlContent,
-      fileName: `Trees_Report_${new Date().toISOString().split('T')[0]}`,
+      fileName: `Trees_Report_${timestamp}`,
       base64: false,
       width: 612,
       height: 792,
@@ -346,7 +395,7 @@ export default function TreeListScreen() {
         pathname: '/pdf-viewer',
         params: {
           filePath: result.filePath,
-          fileName: `Trees_Report_${new Date().toISOString().split('T')[0]}.pdf`
+          fileName: `Trees_Report_${timestamp}.pdf`
         }
       });
     } catch (error) {
