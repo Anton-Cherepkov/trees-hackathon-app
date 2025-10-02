@@ -334,16 +334,21 @@ export default function TreeListScreen() {
     try {
       const result: PDFResult = await generatePDF(options);
       console.log('PDF Generated:', result);
+      console.log('PDF filePath:', result.filePath);
+      console.log('PDF numberOfPages:', result.numberOfPages);
       
       // Deselect all trees and exit selection mode after successful PDF creation
       setSelectedTrees(new Set());
       setIsSelectionMode(false);
       
-      Alert.alert(
-        '✅ PDF успешно создан!',
-        `Файл: ${result.filePath}\nСтраниц: ${result.numberOfPages}`,
-        [{ text: 'OK', style: 'default' }]
-      );
+      // Automatically open PDF viewer without alert
+      router.push({
+        pathname: '/pdf-viewer',
+        params: {
+          filePath: result.filePath,
+          fileName: `Trees_Report_${new Date().toISOString().split('T')[0]}.pdf`
+        }
+      });
     } catch (error) {
       console.error('PDF Generation Error:', error);
       Alert.alert(
