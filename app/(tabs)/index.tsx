@@ -87,7 +87,10 @@ export default function TreeListScreen() {
             await loadTrees();
             return; // Success, exit the function
           } catch (error) {
-            console.error(`Load trees error (attempt ${retryCount + 1}):`, error);
+            // Only log non-database-locking errors during retry attempts
+            if (error instanceof Error && !error.message.includes('database is locked')) {
+              console.error(`Load trees error (attempt ${retryCount + 1}):`, error);
+            }
             retryCount++;
             
             if (retryCount >= maxRetries) {
@@ -116,7 +119,10 @@ export default function TreeListScreen() {
         await loadTrees();
         return; // Success, exit the function
       } catch (error) {
-        console.error(`Database initialization error (attempt ${retryCount + 1}):`, error);
+        // Only log non-database-locking errors during initialization retry attempts
+        if (error instanceof Error && !error.message.includes('database is locked')) {
+          console.error(`Database initialization error (attempt ${retryCount + 1}):`, error);
+        }
         retryCount++;
         
         if (retryCount >= maxRetries) {
@@ -140,10 +146,10 @@ export default function TreeListScreen() {
       setSelectedTrees(new Set());
       setIsSelectionMode(false);
     } catch (error) {
-      console.error('Load trees error:', error);
-      // Don't show alert for database locking errors as they are usually temporary
-      // Only show alert for persistent errors that prevent the app from working
+      // Don't log or show alert for database locking errors as they are usually temporary
+      // Only log and show alert for persistent errors that prevent the app from working
       if (error instanceof Error && !error.message.includes('database is locked')) {
+        console.error('Load trees error:', error);
         Alert.alert('Ошибка', 'Не удалось загрузить деревья');
       }
     } finally {
