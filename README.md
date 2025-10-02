@@ -5,7 +5,7 @@
 
 ## Демонстрация приложения
 
-https://github.com/Anton-Cherepkov/trees-hackathon-app/raw/refs/heads/master/video_example.mp4
+![](https://github.com/Anton-Cherepkov/trees-hackathon-app/raw/refs/heads/master/video_example.mp4)
 
 
 ## Как собрать apk-файл из исходного кода
