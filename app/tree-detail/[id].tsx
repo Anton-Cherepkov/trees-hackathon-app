@@ -22,6 +22,7 @@ import { classifyTreeImage, formatClassificationResult, extractTaxonName } from 
 import { processDefectsForTree } from '@/utils/defectDetection';
 import { DefectRecord } from '@/database/treeDatabase';
 import Svg, { Rect } from 'react-native-svg';
+import { Yamap, Marker } from 'react-native-yamap-plus';
 
 const { width: screenWidth } = Dimensions.get('window');
 const imageDisplayWidth = screenWidth - 32;
@@ -531,6 +532,39 @@ export default function TreeDetailScreen() {
           )}
         </View>
 
+        {/* Location Map Section */}
+        <View style={styles.mapContainer}>
+          <Text style={styles.sectionTitle}>Местоположение</Text>
+          <View style={styles.mapWrapper}>
+            <Yamap
+              style={styles.map}
+              initialRegion={{
+                lat: 55.7569,
+                lon: 37.6151,
+                zoom: 15,
+                azimuth: 0,
+                tilt: 0,
+              }}
+              onMapLoaded={() => {
+                console.log('Map loaded');
+                console.log('Tree data:', tree?.cropPath, tree?.imageUri);
+                console.log('Marker source will be:', tree?.cropPath ? { uri: tree.cropPath } : tree?.imageUri ? { uri: tree.imageUri } : require('@/assets/images/icon.png'));
+              }}
+            >
+              <Marker
+                point={{
+                  lat: 55.7569,
+                  lon: 37.6151,
+                }}
+                source={require('@/assets/images/icon.png')}
+                scale={0.15}
+                anchor={{ x: 0.5, y: 0.5 }}
+                onPress={() => console.log('Marker pressed')}
+              />
+            </Yamap>
+          </View>
+        </View>
+
         <View style={styles.descriptionContainer}>
           <View style={styles.descriptionHeader}>
             <Text style={styles.sectionTitle}>ИИ Анализ</Text>
@@ -918,6 +952,23 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderWidth: 1,
     borderColor: '#e5e7eb',
+  },
+  mapContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  mapWrapper: {
+    height: 300,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+  map: {
+    flex: 1,
   },
   photosHeader: {
     flexDirection: 'row',
