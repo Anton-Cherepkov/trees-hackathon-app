@@ -21,6 +21,7 @@ import {
   type PDFOptions,
   type PDFResult,
 } from 'react-native-html-to-pdf';
+import { YamapInstance } from 'react-native-yamap-plus';
 
 let yoloModel: ort.InferenceSession;
 
@@ -41,6 +42,9 @@ export default function TreeListScreen() {
   const router = useRouter();
 
   useEffect(() => {
+    // Initialize Yandex MapKit API
+    YamapInstance.init('097146cb-673a-49ce-bdcb-6ce83b4da358');
+    
     initializeDatabase();
     // Test ONNX Runtime availability
     logONNXStatus();

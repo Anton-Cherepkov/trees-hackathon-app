@@ -29,7 +29,8 @@
     },
     "android": {
       "package": "com.anonymous.boltexponativewind",
-      "ndkVersion": "29.0.14033849"
+      "ndkVersion": "29.0.14033849",
+      "minSdkVersion": 26
     },
     "extra": {
       "router": {},
