@@ -23,6 +23,7 @@ import { processDefectsForTree } from '@/utils/defectDetection';
 import { DefectRecord } from '@/database/treeDatabase';
 import Svg, { Rect } from 'react-native-svg';
 import { Yamap, Marker } from 'react-native-yamap-plus';
+import { getTreesForMap, calculateTreeDetailMapRegion, TreeWithMarkerInfo } from '@/utils/mapUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
 const imageDisplayWidth = screenWidth - 32;
@@ -39,6 +40,8 @@ export default function TreeDetailScreen() {
   const [defects, setDefects] = useState<DefectRecord[]>([]);
   const [defectZoomModalVisible, setDefectZoomModalVisible] = useState(false);
   const [selectedDefectImage, setSelectedDefectImage] = useState<string | null>(null);
+  const [mapTrees, setMapTrees] = useState<TreeWithMarkerInfo[]>([]);
+  const [mapLoading, setMapLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -62,6 +65,9 @@ export default function TreeDetailScreen() {
         // Load defects for this tree
         const treeDefects = await treeDatabase.getDefectsByTreeId(parseInt(id!));
         setDefects(treeDefects);
+        
+        // Load all trees for map display
+        await loadMapTrees();
       } else {
         console.log('Tree not found for id:', id);
         Alert.alert('Ошибка', 'Дерево не найдено. Возможно, оно было удалено.');
@@ -76,6 +82,17 @@ export default function TreeDetailScreen() {
     }
   };
 
+  const loadMapTrees = async () => {
+    try {
+      setMapLoading(true);
+      const trees = await getTreesForMap(null);
+      setMapTrees(trees);
+    } catch (error) {
+      console.error('Error loading trees for map:', error);
+    } finally {
+      setMapLoading(false);
+    }
+  };
 
   const deleteTree = async () => {
     if (!tree) return;
@@ -341,6 +358,9 @@ export default function TreeDetailScreen() {
       // Update defects state with the inserted records that have IDs
       setDefects(insertedDefects);
       
+      // Reload map trees to update marker colors after AI analysis
+      await loadMapTrees();
+      
       console.log('Description and defects generated and saved successfully');
       Alert.alert('Успешно', `Анализ дерева завершён! Найдено ${defectRecords.length} дефектов. Описание сгенерировано автоматически.`);
       
@@ -533,36 +553,42 @@ export default function TreeDetailScreen() {
         </View>
 
         {/* Location Map Section */}
-        <View style={styles.mapContainer}>
-          <Text style={styles.sectionTitle}>Местоположение</Text>
-          <View style={styles.mapWrapper}>
-            <Yamap
-              style={styles.map}
-              initialRegion={{
-                lat: 55.7569,
-                lon: 37.6151,
-                zoom: 15,
-                azimuth: 0,
-                tilt: 0,
-              }}
-              onMapLoaded={() => {
-                // Map loaded successfully
-              }}
-            >
-              <Marker
-                point={{
-                  lat: 55.7570,
-                  lon: 37.6151,
-                }}
-                source={require('@/assets/images/tree_map_marker_green.png')}
-                scale={1.2}
-                onPress={() => {
-                  // Marker pressed
-                }}
-              />
-            </Yamap>
+        {tree.latitude && tree.longitude && (
+          <View style={styles.mapContainer}>
+            <Text style={styles.sectionTitle}>Местоположение</Text>
+            <View style={styles.mapWrapper}>
+              {mapLoading ? (
+                <View style={styles.mapLoadingContainer}>
+                  <Text style={styles.mapLoadingText}>Загрузка карты...</Text>
+                </View>
+              ) : (
+                <Yamap
+                  style={styles.map}
+                  initialRegion={calculateTreeDetailMapRegion(tree)}
+                  onMapLoaded={() => {
+                    // Map loaded successfully
+                  }}
+                >
+                  {mapTrees.map((mapTree) => {
+                    const isCurrentTree = mapTree.id === tree.id;
+                    return (
+                      <Marker
+                        key={mapTree.id}
+                        point={{
+                          lat: mapTree.latitude!,
+                          lon: mapTree.longitude!,
+                        }}
+                        source={mapTree.markerIcon}
+                        scale={isCurrentTree ? 2.0 : 1.0}
+                        // No onPress handler - trees are not clickable on tree detail page
+                      />
+                    );
+                  })}
+                </Yamap>
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
         <View style={styles.descriptionContainer}>
           <View style={styles.descriptionHeader}>
@@ -968,6 +994,16 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  mapLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+  },
+  mapLoadingText: {
+    fontSize: 16,
+    color: '#6b7280',
   },
   photosHeader: {
     flexDirection: 'row',

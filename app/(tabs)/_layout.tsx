@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { TreePine, Camera, Settings, BookOpen } from 'lucide-react-native';
+import { TreePine, Camera, Settings, BookOpen, Map } from 'lucide-react-native';
 import { Platform, Text } from 'react-native';
 
 export default function TabLayout() {
@@ -24,6 +24,15 @@ export default function TabLayout() {
           title: 'Деревья',
           tabBarIcon: ({ size, color }) => (
             <TreePine size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: 'Карта',
+          tabBarIcon: ({ size, color }) => (
+            <Map size={size} color={color} />
           ),
         }}
       />

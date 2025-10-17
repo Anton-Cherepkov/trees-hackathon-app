@@ -9,6 +9,8 @@ export interface TreeRecord {
   additionalImages: string[];
   cropPath?: string;
   taxonName?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface BoundingBox {
@@ -57,7 +59,9 @@ class TreeDatabase {
           description TEXT DEFAULT '',
           additionalImages TEXT DEFAULT '[]',
           cropPath TEXT DEFAULT '',
-          taxonName TEXT DEFAULT NULL
+          taxonName TEXT DEFAULT NULL,
+          latitude REAL DEFAULT NULL,
+          longitude REAL DEFAULT NULL
         );
         
         CREATE TABLE IF NOT EXISTS defects (
@@ -94,6 +98,26 @@ class TreeDatabase {
         console.log('taxonName column already exists or migration not needed');
       }
       
+      // Add latitude column if it doesn't exist (for existing databases)
+      try {
+        await this.db.execAsync(`
+          ALTER TABLE trees ADD COLUMN latitude REAL DEFAULT NULL;
+        `);
+      } catch (error) {
+        // Column already exists, ignore the error
+        console.log('latitude column already exists or migration not needed');
+      }
+      
+      // Add longitude column if it doesn't exist (for existing databases)
+      try {
+        await this.db.execAsync(`
+          ALTER TABLE trees ADD COLUMN longitude REAL DEFAULT NULL;
+        `);
+      } catch (error) {
+        // Column already exists, ignore the error
+        console.log('longitude column already exists or migration not needed');
+      }
+      
       this.initialized = true;
       console.log('Database initialized successfully');
     } catch (error) {
@@ -110,8 +134,8 @@ class TreeDatabase {
     
     try {
       const result = await this.db!.runAsync(
-        `INSERT INTO trees (imageUri, boundingBoxX, boundingBoxY, boundingBoxWidth, boundingBoxHeight, dateTaken, description, additionalImages, cropPath, taxonName)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO trees (imageUri, boundingBoxX, boundingBoxY, boundingBoxWidth, boundingBoxHeight, dateTaken, description, additionalImages, cropPath, taxonName, latitude, longitude)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           tree.imageUri,
           tree.boundingBox.x,
@@ -122,7 +146,9 @@ class TreeDatabase {
           tree.description,
           JSON.stringify(tree.additionalImages),
           tree.cropPath || '',
-          tree.taxonName || null
+          tree.taxonName || null,
+          tree.latitude || null,
+          tree.longitude || null
         ]
       );
       
@@ -155,6 +181,8 @@ class TreeDatabase {
         additionalImages: JSON.parse(row.additionalImages || '[]'),
         cropPath: row.cropPath || '',
         taxonName: row.taxonName || null,
+        latitude: row.latitude || null,
+        longitude: row.longitude || null,
       }));
     } catch (error) {
       console.error('Get all trees error:', error);
@@ -186,6 +214,8 @@ class TreeDatabase {
         additionalImages: JSON.parse((row as any).additionalImages || '[]'),
         cropPath: (row as any).cropPath || '',
         taxonName: (row as any).taxonName || null,
+        latitude: (row as any).latitude || null,
+        longitude: (row as any).longitude || null,
       };
     } catch (error) {
       console.error('Get tree by id error:', error);
@@ -215,6 +245,16 @@ class TreeDatabase {
       if (updates.taxonName !== undefined) {
         fields.push('taxonName = ?');
         values.push(updates.taxonName);
+      }
+      
+      if (updates.latitude !== undefined) {
+        fields.push('latitude = ?');
+        values.push(updates.latitude);
+      }
+      
+      if (updates.longitude !== undefined) {
+        fields.push('longitude = ?');
+        values.push(updates.longitude);
       }
       
       if (fields.length === 0) return;

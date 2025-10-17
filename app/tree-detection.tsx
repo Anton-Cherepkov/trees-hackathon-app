@@ -21,6 +21,24 @@ import { cropTreeWithDimensions } from '@/utils/treeCropper';
 const { width: screenWidth } = Dimensions.get('window');
 const imageDisplayWidth = screenWidth - 32;
 
+// Mock GPS generation function
+const generateMockGPS = () => {
+  // Random coordinates within the specified rectangle
+  // NW: 55.80609867, 37.51982666
+  // NE: 55.80609867, 37.71137334
+  // SE: 55.69830133, 37.71137334
+  // SW: 55.69830133, 37.51982666
+  const minLat = 55.69830133;
+  const maxLat = 55.80609867;
+  const minLon = 37.51982666;
+  const maxLon = 37.71137334;
+  
+  const latitude = minLat + Math.random() * (maxLat - minLat);
+  const longitude = minLon + Math.random() * (maxLon - minLon);
+  
+  return { latitude, longitude };
+};
+
 
 export default function TreeDetectionScreen() {
   const { imageUri } = useLocalSearchParams<{ imageUri: string }>();
@@ -174,6 +192,9 @@ export default function TreeDetectionScreen() {
           // Continue without crop - don't fail the entire save operation
         }
 
+        // Generate mock GPS coordinates for this tree
+        const { latitude, longitude } = generateMockGPS();
+        
         const treeRecord = {
           imageUri: imageUri!,
           boundingBox: {
@@ -186,6 +207,8 @@ export default function TreeDetectionScreen() {
           description: '',
           additionalImages: [],
           cropPath: cropPath,
+          latitude: latitude,
+          longitude: longitude,
         };
 
         console.log('Tree record:', treeRecord);
