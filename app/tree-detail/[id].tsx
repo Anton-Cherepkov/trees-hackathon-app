@@ -12,10 +12,11 @@ import {
   FlatList,
   Dimensions,
   Modal,
+  Clipboard,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { treeDatabase, TreeRecord } from '@/database/treeDatabase';
-import { ArrowLeft, Save, Trash2, Camera, Image as ImageIcon, Wand as Wand2, Calendar } from 'lucide-react-native';
+import { ArrowLeft, Save, Trash2, Camera, Image as ImageIcon, Wand as Wand2, Calendar, Copy } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { classifyTreeImage, formatClassificationResult, extractTaxonName } from '@/utils/treeClassifier';
@@ -92,6 +93,15 @@ export default function TreeDetailScreen() {
     } finally {
       setMapLoading(false);
     }
+  };
+
+
+  const copyCoordinates = () => {
+    if (!tree || !tree.latitude || !tree.longitude) return;
+    
+    const coordinates = `${tree.latitude.toFixed(6)}, ${tree.longitude.toFixed(6)}`;
+    Clipboard.setString(coordinates);
+    Alert.alert('Скопировано', 'Координаты скопированы в буфер обмена');
   };
 
   const deleteTree = async () => {
@@ -556,6 +566,28 @@ export default function TreeDetailScreen() {
         {tree.latitude && tree.longitude && (
           <View style={styles.mapContainer}>
             <Text style={styles.sectionTitle}>Местоположение</Text>
+            
+            {/* GPS Coordinates Display */}
+            <View style={styles.coordinatesContainer}>
+              <View style={styles.coordinatesHeader}>
+                <Text style={styles.coordinatesTitle}>GPS координаты</Text>
+                <TouchableOpacity
+                  style={styles.copyButton}
+                  onPress={copyCoordinates}
+                >
+                  <Copy size={16} color="#3b82f6" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.coordinateRow}>
+                <Text style={styles.coordinateLabel}>Широта:</Text>
+                <Text style={styles.coordinateValue}>{tree.latitude.toFixed(6)}°</Text>
+              </View>
+              <View style={styles.coordinateRow}>
+                <Text style={styles.coordinateLabel}>Долгота:</Text>
+                <Text style={styles.coordinateValue}>{tree.longitude.toFixed(6)}°</Text>
+              </View>
+            </View>
+            
             <View style={styles.mapWrapper}>
               {mapLoading ? (
                 <View style={styles.mapLoadingContainer}>
@@ -987,6 +1019,53 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderWidth: 1,
     borderColor: '#e5e7eb',
+  },
+  coordinatesContainer: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  coordinatesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  coordinatesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  copyButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eff6ff',
+    borderRadius: 6,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+    minWidth: 32,
+    minHeight: 32,
+  },
+  coordinateRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  coordinateLabel: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  coordinateValue: {
+    fontSize: 14,
+    color: '#1e293b',
+    fontWeight: '600',
+    fontFamily: 'monospace',
   },
   mapWrapper: {
     height: 300,
