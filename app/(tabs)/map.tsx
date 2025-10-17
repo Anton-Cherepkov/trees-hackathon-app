@@ -1,19 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Yamap, Marker } from 'react-native-yamap-plus';
 import { getTreesForMap, calculateMapRegion, TreeWithMarkerInfo } from '@/utils/mapUtils';
-import { TreePine } from 'lucide-react-native';
+import { TreePine, Navigation } from 'lucide-react-native';
+import * as Location from 'expo-location';
 
 export default function MapScreen() {
   const [trees, setTrees] = useState<TreeWithMarkerInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const mapRef = useRef<Yamap>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -41,6 +46,44 @@ export default function MapScreen() {
 
   const handleMarkerPress = (treeId: number) => {
     router.push(`/tree-detail/${treeId}`);
+  };
+
+  const handleGpsPress = async () => {
+    try {
+      setGpsLoading(true);
+      
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Разрешение на местоположение',
+          'Для определения вашего местоположения необходимо разрешение на доступ к GPS.'
+        );
+        return;
+      }
+
+      // Get current location
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        timeout: 10000,
+      });
+
+      const { latitude, longitude } = location.coords;
+      
+      // Center map on current location
+      if (mapRef.current) {
+        mapRef.current.setCenter({ lat: latitude, lon: longitude }, 16);
+      }
+      
+    } catch (error) {
+      console.error('GPS location error:', error);
+      Alert.alert(
+        'Ошибка GPS',
+        'Не удалось определить ваше местоположение. Проверьте, что GPS включен и доступен.'
+      );
+    } finally {
+      setGpsLoading(false);
+    }
   };
 
   const EmptyState = () => (
@@ -93,8 +136,11 @@ export default function MapScreen() {
 
       <View style={styles.mapContainer}>
         <Yamap
+          ref={mapRef}
           style={styles.map}
           initialRegion={mapRegion}
+          logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
+          logoPadding={{ horizontal: 16, vertical: 16 }}
           onMapLoaded={() => {
             console.log('Map loaded successfully');
           }}
@@ -117,6 +163,19 @@ export default function MapScreen() {
           ))}
         </Yamap>
         
+        {/* GPS Button - positioned over the map */}
+        <TouchableOpacity
+          style={[styles.gpsButton, gpsLoading && styles.gpsButtonDisabled]}
+          onPress={handleGpsPress}
+          disabled={gpsLoading}
+        >
+          {gpsLoading ? (
+            <ActivityIndicator size="small" color="#22c55e" />
+          ) : (
+            <Navigation size={24} color="#22c55e" />
+          )}
+        </TouchableOpacity>
+
         {/* Legend - positioned over the map */}
         <View style={styles.legendContainer}>
           <View style={styles.legendItem}>
@@ -197,6 +256,29 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  gpsButton: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 1000,
+    borderWidth: 2,
+    borderColor: '#22c55e',
+  },
+  gpsButtonDisabled: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#9ca3af',
   },
   loadingContainer: {
     flex: 1,

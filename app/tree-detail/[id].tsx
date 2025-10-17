@@ -565,6 +565,8 @@ export default function TreeDetailScreen() {
                 <Yamap
                   style={styles.map}
                   initialRegion={calculateTreeDetailMapRegion(tree)}
+                  logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
+                  logoPadding={{ horizontal: 16, vertical: 16 }}
                   onMapLoaded={() => {
                     // Map loaded successfully
                   }}
