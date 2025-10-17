@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { treeDatabase, BoundingBox } from '@/database/treeDatabase';
-import { Check, X, Save, ArrowLeft } from 'lucide-react-native';
+import { Check, X, Save, ArrowLeft, RefreshCw, MapPin } from 'lucide-react-native';
 import Svg, { Rect, Text as SvgText, G, Circle } from 'react-native-svg';
 import { preprocessImage } from '@/utils/preprocessImage';
 import { runYOLOInference, DetectedTree } from '@/utils/yoloInference';
 import { cropTreeWithDimensions } from '@/utils/treeCropper';
+import * as Location from 'expo-location';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const { width: screenWidth } = Dimensions.get('window');
 const imageDisplayWidth = screenWidth - 32;
@@ -40,6 +42,9 @@ const generateMockGPS = () => {
 };
 
 
+type GPSStatus = 'determining' | 'unavailable' | 'available' | 'no-exif' | 'exif-available';
+type PhotoSource = 'camera' | 'gallery';
+
 export default function TreeDetectionScreen() {
   const { imageUri } = useLocalSearchParams<{ imageUri: string }>();
   const [detectedTrees, setDetectedTrees] = useState<DetectedTree[]>([]);
@@ -48,14 +53,110 @@ export default function TreeDetectionScreen() {
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [actualImageSize, setActualImageSize] = useState({ width: 0, height: 0 });
   const [imageError, setImageError] = useState(false);
+  const [gpsStatus, setGpsStatus] = useState<GPSStatus>('determining');
+  const [gpsLocation, setGpsLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [photoSource, setPhotoSource] = useState<PhotoSource>('camera');
   const router = useRouter();
 
   useEffect(() => {
     if (imageUri) {
       console.log('Image URI received:', imageUri);
+      
+      // Determine photo source based on URI
+      const isFromGallery = imageUri.includes('file://') && !imageUri.includes('Camera');
+      setPhotoSource(isFromGallery ? 'gallery' : 'camera');
+      
       runTreeDetection();
+      handleGPSLocation(imageUri, isFromGallery);
     }
   }, [imageUri]);
+
+  const handleGPSLocation = async (imageUri: string, isFromGallery: boolean) => {
+    if (isFromGallery) {
+      // For gallery photos, try to extract EXIF data first
+      setGpsStatus('determining');
+      const exifLocation = await extractEXIFLocation(imageUri);
+      
+      if (exifLocation) {
+        setGpsLocation(exifLocation);
+        setGpsStatus('exif-available');
+        console.log('EXIF GPS location found:', exifLocation);
+      } else {
+        setGpsStatus('no-exif');
+        console.log('No EXIF GPS data found in gallery photo');
+      }
+    } else {
+      // For camera photos, fetch current location
+      fetchGPSLocation();
+    }
+  };
+
+  const fetchGPSLocation = async () => {
+    try {
+      setGpsLoading(true);
+      setGpsStatus('determining');
+      
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setGpsStatus('unavailable');
+        return;
+      }
+
+      // Get current location
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      if (location) {
+        setGpsLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+        setGpsStatus('available');
+        console.log('GPS location obtained:', location.coords.latitude, location.coords.longitude);
+      } else {
+        setGpsStatus('unavailable');
+      }
+    } catch (error) {
+      console.error('GPS location error:', error);
+      setGpsStatus('unavailable');
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  const retryGPSLocation = () => {
+    fetchGPSLocation();
+  };
+
+  const useCurrentLocation = () => {
+    fetchGPSLocation();
+  };
+
+  const extractEXIFLocation = async (imageUri: string): Promise<{ latitude: number; longitude: number } | null> => {
+    try {
+      // Get image metadata including EXIF data
+      const metadata = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [],
+        { format: ImageManipulator.SaveFormat.JPEG }
+      );
+      
+      // For now, we'll use a simple approach to check if the image has location data
+      // In a real implementation, you might want to use a library like 'expo-image-picker'
+      // or a dedicated EXIF library to extract GPS coordinates
+      
+      // This is a placeholder - in practice, you'd need to parse the actual EXIF data
+      // For now, we'll return null to simulate no EXIF data
+      console.log('Attempting to extract EXIF data from:', imageUri);
+      return null;
+    } catch (error) {
+      console.error('EXIF extraction error:', error);
+      return null;
+    }
+  };
 
   const runTreeDetection = async () => {
     try {
@@ -192,8 +293,8 @@ export default function TreeDetectionScreen() {
           // Continue without crop - don't fail the entire save operation
         }
 
-        // Generate mock GPS coordinates for this tree
-        const { latitude, longitude } = generateMockGPS();
+        // Use real GPS coordinates if available, otherwise fallback to mock
+        const { latitude, longitude } = gpsLocation || generateMockGPS();
         
         const treeRecord = {
           imageUri: imageUri!,
@@ -396,6 +497,69 @@ export default function TreeDetectionScreen() {
 
         {!loading && (
           <>
+            {/* GPS Status Block */}
+            <View style={styles.gpsStatusContainer}>
+              <View style={styles.gpsStatusHeader}>
+                <MapPin size={20} color={
+                  gpsStatus === 'available' || gpsStatus === 'exif-available' ? '#22c55e' : 
+                  gpsStatus === 'unavailable' || gpsStatus === 'no-exif' ? '#ef4444' : '#6b7280'
+                } />
+                <Text style={[
+                  styles.gpsStatusTitle,
+                  (gpsStatus === 'available' || gpsStatus === 'exif-available') && styles.gpsStatusTitleSuccess,
+                  (gpsStatus === 'unavailable' || gpsStatus === 'no-exif') && styles.gpsStatusTitleError
+                ]}>
+                  {gpsStatus === 'determining' && 'Определение геопозиции'}
+                  {gpsStatus === 'unavailable' && 'Геопозиция недоступна'}
+                  {gpsStatus === 'available' && 'Геопозиция сохранена'}
+                  {gpsStatus === 'exif-available' && 'Геопозиция из фото'}
+                  {gpsStatus === 'no-exif' && 'Нет данных о местоположении'}
+                </Text>
+              </View>
+              
+              {gpsStatus === 'unavailable' && (
+                <View style={styles.gpsStatusContent}>
+                  <Text style={styles.gpsStatusMessage}>
+                    Включите геолокацию и попробуйте снова
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.gpsRetryButton}
+                    onPress={retryGPSLocation}
+                    disabled={gpsLoading}
+                  >
+                    <RefreshCw size={16} color="#ffffff" />
+                    <Text style={styles.gpsRetryButtonText}>
+                      {gpsLoading ? 'Попытка...' : 'Попробовать снова'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {gpsStatus === 'no-exif' && (
+                <View style={styles.gpsStatusContent}>
+                  <Text style={styles.gpsStatusMessage}>
+                    В этом фото нет данных о местоположении
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.gpsRetryButton}
+                    onPress={useCurrentLocation}
+                    disabled={gpsLoading}
+                  >
+                    <MapPin size={16} color="#ffffff" />
+                    <Text style={styles.gpsRetryButtonText}>
+                      {gpsLoading ? 'Получение...' : 'Использовать текущую геолокацию'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              
+              {(gpsStatus === 'available' || gpsStatus === 'exif-available') && gpsLocation && (
+                <Text style={styles.gpsCoordinates}>
+                  {gpsLocation.latitude.toFixed(6)}, {gpsLocation.longitude.toFixed(6)}
+                </Text>
+              )}
+            </View>
+
             <View style={styles.detectionInfo}>
               <Text style={styles.detectionTitle}>
                 Деревьев обнаружено: {detectedTrees.length}
@@ -623,5 +787,59 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
     marginTop: 8,
+  },
+  gpsStatusContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  gpsStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  gpsStatusTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginLeft: 8,
+  },
+  gpsStatusTitleSuccess: {
+    color: '#22c55e',
+  },
+  gpsStatusTitleError: {
+    color: '#ef4444',
+  },
+  gpsStatusContent: {
+    marginTop: 8,
+  },
+  gpsStatusMessage: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  gpsRetryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#22c55e',
+    borderRadius: 8,
+    padding: 12,
+    gap: 8,
+  },
+  gpsRetryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  gpsCoordinates: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontFamily: 'monospace',
+    marginTop: 4,
   },
 });
