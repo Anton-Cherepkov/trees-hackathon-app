@@ -546,20 +546,19 @@ export default function TreeDetailScreen() {
                 tilt: 0,
               }}
               onMapLoaded={() => {
-                console.log('Map loaded');
-                console.log('Tree data:', tree?.cropPath, tree?.imageUri);
-                console.log('Marker source will be:', tree?.cropPath ? { uri: tree.cropPath } : tree?.imageUri ? { uri: tree.imageUri } : require('@/assets/images/icon.png'));
+                // Map loaded successfully
               }}
             >
               <Marker
                 point={{
-                  lat: 55.7569,
+                  lat: 55.7570,
                   lon: 37.6151,
                 }}
-                source={require('@/assets/images/icon.png')}
-                scale={0.15}
-                anchor={{ x: 0.5, y: 0.5 }}
-                onPress={() => console.log('Marker pressed')}
+                source={require('@/assets/images/tree_map_marker_green.png')}
+                scale={1.2}
+                onPress={() => {
+                  // Marker pressed
+                }}
               />
             </Yamap>
           </View>
