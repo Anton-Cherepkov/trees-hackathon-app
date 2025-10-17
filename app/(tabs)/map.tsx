@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Yamap, Marker } from 'react-native-yamap-plus';
-import { getTreesForMap, calculateMapRegion, TreeWithMarkerInfo } from '@/utils/mapUtils';
+import { getTreesForMap, calculateMapRegion, TreeWithMarkerInfo, getMapStyle } from '@/utils/mapUtils';
 import { TreePine, Navigation } from 'lucide-react-native';
 import * as Location from 'expo-location';
 
@@ -141,6 +141,7 @@ export default function MapScreen() {
           initialRegion={mapRegion}
           logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
           logoPadding={{ horizontal: 16, vertical: 16 }}
+          mapStyle={getMapStyle()}
           onMapLoaded={() => {
             console.log('Map loaded successfully');
           }}

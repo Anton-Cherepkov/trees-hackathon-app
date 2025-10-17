@@ -24,7 +24,7 @@ import { processDefectsForTree } from '@/utils/defectDetection';
 import { DefectRecord } from '@/database/treeDatabase';
 import Svg, { Rect } from 'react-native-svg';
 import { Yamap, Marker } from 'react-native-yamap-plus';
-import { getTreesForMap, calculateTreeDetailMapRegion, TreeWithMarkerInfo } from '@/utils/mapUtils';
+import { getTreesForMap, calculateTreeDetailMapRegion, TreeWithMarkerInfo, getMapStyle } from '@/utils/mapUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
 const imageDisplayWidth = screenWidth - 32;
@@ -599,6 +599,7 @@ export default function TreeDetailScreen() {
                   initialRegion={calculateTreeDetailMapRegion(tree)}
                   logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
                   logoPadding={{ horizontal: 16, vertical: 16 }}
+                  mapStyle={getMapStyle()}
                   onMapLoaded={() => {
                     // Map loaded successfully
                   }}

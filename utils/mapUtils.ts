@@ -12,6 +12,45 @@ export interface MapRegion {
 }
 
 /**
+ * Map style configuration to hide certain POI types for cleaner tree-focused maps
+ * Hides major landmarks, parking, shopping, commercial services, and food & drink
+ */
+export const getMapStyle = (): string => {
+  return JSON.stringify([
+    {
+      types: ["point"],
+      tags: { any: ["major_landmark"] },
+      elements: ["label.icon", "label.text"],
+      stylers: { visibility: "off" }
+    },
+    {
+      types: ["point"],
+      tags: { any: ["parking"] },
+      elements: ["label.icon", "label.text"],
+      stylers: { visibility: "off" }
+    },
+    {
+      types: ["point"],
+      tags: { any: ["shopping"] },
+      elements: ["label.icon", "label.text"],
+      stylers: { visibility: "off" }
+    },
+    {
+      types: ["point"],
+      tags: { any: ["commercial_services"] },
+      elements: ["label.icon", "label.text"],
+      stylers: { visibility: "off" }
+    },
+    {
+      types: ["point"],
+      tags: { any: ["food_and_drink"] },
+      elements: ["label.icon", "label.text"],
+      stylers: { visibility: "off" }
+    }
+  ]);
+};
+
+/**
  * Get trees for map display with marker information
  * @param treeIds - Array of tree IDs to fetch, or null to fetch all trees
  * @returns Array of trees with GPS coordinates and marker info
