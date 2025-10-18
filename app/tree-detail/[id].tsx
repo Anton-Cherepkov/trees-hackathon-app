@@ -14,7 +14,7 @@ import {
   Modal,
   Clipboard,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { treeDatabase, TreeRecord } from '@/database/treeDatabase';
 import { ArrowLeft, Save, Trash2, Camera, Image as ImageIcon, Wand as Wand2, Calendar, Copy } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -50,6 +50,15 @@ export default function TreeDetailScreen() {
       loadTreeData();
     }
   }, [id]);
+
+  // Refresh tree data when screen comes back into focus (e.g., after editing location)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (id) {
+        loadTreeData();
+      }
+    }, [id])
+  );
 
   const loadTreeData = async () => {
     try {
@@ -284,6 +293,38 @@ export default function TreeDetailScreen() {
             } catch (error) {
               Alert.alert('Ошибка', 'Не удалось удалить дефект');
               console.error('Delete defect error:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteLocation = async () => {
+    if (!tree) return;
+
+    Alert.alert(
+      'Удалить местоположение',
+      'Вы уверены, что хотите удалить GPS координаты для этого дерева? Это действие нельзя отменить.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Удалить',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await treeDatabase.updateTree(tree.id!, {
+                latitude: null,
+                longitude: null,
+              });
+              
+              // Force complete refresh of tree data
+              await loadTreeData();
+              
+              Alert.alert('Успешно', 'Местоположение дерева удалено');
+            } catch (error) {
+              Alert.alert('Ошибка', 'Не удалось удалить местоположение');
+              console.error('Delete location error:', error);
             }
           },
         },
@@ -564,7 +605,17 @@ export default function TreeDetailScreen() {
 
         {/* Location Map Section */}
         <View style={styles.mapContainer}>
-          <Text style={styles.sectionTitle}>Местоположение</Text>
+          <View style={styles.mapHeader}>
+            <Text style={styles.sectionTitle}>Местоположение</Text>
+            <TouchableOpacity
+              style={styles.editLocationButton}
+              onPress={() => router.push(`/edit-location/${tree.id}`)}
+            >
+              <Text style={styles.editLocationButtonText}>
+                {tree.latitude && tree.longitude ? 'Изменить' : 'Добавить'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           
           {tree.latitude && tree.longitude ? (
             <>
@@ -623,6 +674,17 @@ export default function TreeDetailScreen() {
                   </Yamap>
                 )}
               </View>
+              
+              {/* Delete Location Button */}
+              <TouchableOpacity
+                style={styles.deleteLocationButton}
+                onPress={deleteLocation}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.deleteLocationButtonText}>
+                  Удалить местоположение
+                </Text>
+              </TouchableOpacity>
             </>
           ) : (
             <View style={styles.noLocationContainer}>
@@ -1030,6 +1092,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
+  mapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  editLocationButton: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    shadowColor: '#3b82f6',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  editLocationButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
   coordinatesContainer: {
     backgroundColor: '#f8fafc',
     borderRadius: 8,
@@ -1276,5 +1363,22 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  deleteLocationButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.7)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignSelf: 'center',
+    marginTop: 16,
+    minWidth: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteLocationButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
