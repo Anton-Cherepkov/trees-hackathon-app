@@ -563,67 +563,76 @@ export default function TreeDetailScreen() {
         </View>
 
         {/* Location Map Section */}
-        {tree.latitude && tree.longitude && (
-          <View style={styles.mapContainer}>
-            <Text style={styles.sectionTitle}>Местоположение</Text>
-            
-            {/* GPS Coordinates Display */}
-            <View style={styles.coordinatesContainer}>
-              <View style={styles.coordinatesHeader}>
-                <Text style={styles.coordinatesTitle}>GPS координаты</Text>
-                <TouchableOpacity
-                  style={styles.copyButton}
-                  onPress={copyCoordinates}
-                >
-                  <Copy size={16} color="#3b82f6" />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.coordinateRow}>
-                <Text style={styles.coordinateLabel}>Широта:</Text>
-                <Text style={styles.coordinateValue}>{tree.latitude.toFixed(6)}°</Text>
-              </View>
-              <View style={styles.coordinateRow}>
-                <Text style={styles.coordinateLabel}>Долгота:</Text>
-                <Text style={styles.coordinateValue}>{tree.longitude.toFixed(6)}°</Text>
-              </View>
-            </View>
-            
-            <View style={styles.mapWrapper}>
-              {mapLoading ? (
-                <View style={styles.mapLoadingContainer}>
-                  <Text style={styles.mapLoadingText}>Загрузка карты...</Text>
+        <View style={styles.mapContainer}>
+          <Text style={styles.sectionTitle}>Местоположение</Text>
+          
+          {tree.latitude && tree.longitude ? (
+            <>
+              {/* GPS Coordinates Display */}
+              <View style={styles.coordinatesContainer}>
+                <View style={styles.coordinatesHeader}>
+                  <Text style={styles.coordinatesTitle}>GPS координаты</Text>
+                  <TouchableOpacity
+                    style={styles.copyButton}
+                    onPress={copyCoordinates}
+                  >
+                    <Copy size={16} color="#3b82f6" />
+                  </TouchableOpacity>
                 </View>
-              ) : (
-                <Yamap
-                  style={styles.map}
-                  initialRegion={calculateTreeDetailMapRegion(tree)}
-                  logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
-                  logoPadding={{ horizontal: 16, vertical: 16 }}
-                  mapStyle={getMapStyle()}
-                  onMapLoaded={() => {
-                    // Map loaded successfully
-                  }}
-                >
-                  {mapTrees.map((mapTree) => {
-                    const isCurrentTree = mapTree.id === tree.id;
-                    return (
-                      <Marker
-                        key={mapTree.id}
-                        point={{
-                          lat: mapTree.latitude!,
-                          lon: mapTree.longitude!,
-                        }}
-                        source={mapTree.markerIcon}
-                        scale={isCurrentTree ? 2.0 : 1.0}
-                        // No onPress handler - trees are not clickable on tree detail page
-                      />
-                    );
-                  })}
-                </Yamap>
-              )}
+                <View style={styles.coordinateRow}>
+                  <Text style={styles.coordinateLabel}>Широта:</Text>
+                  <Text style={styles.coordinateValue}>{tree.latitude.toFixed(6)}°</Text>
+                </View>
+                <View style={styles.coordinateRow}>
+                  <Text style={styles.coordinateLabel}>Долгота:</Text>
+                  <Text style={styles.coordinateValue}>{tree.longitude.toFixed(6)}°</Text>
+                </View>
+              </View>
+              
+              <View style={styles.mapWrapper}>
+                {mapLoading ? (
+                  <View style={styles.mapLoadingContainer}>
+                    <Text style={styles.mapLoadingText}>Загрузка карты...</Text>
+                  </View>
+                ) : (
+                  <Yamap
+                    style={styles.map}
+                    initialRegion={calculateTreeDetailMapRegion(tree)}
+                    logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
+                    logoPadding={{ horizontal: 16, vertical: 16 }}
+                    mapStyle={getMapStyle()}
+                    onMapLoaded={() => {
+                      // Map loaded successfully
+                    }}
+                  >
+                    {mapTrees.map((mapTree) => {
+                      const isCurrentTree = mapTree.id === tree.id;
+                      return (
+                        <Marker
+                          key={mapTree.id}
+                          point={{
+                            lat: mapTree.latitude!,
+                            lon: mapTree.longitude!,
+                          }}
+                          source={mapTree.markerIcon}
+                          scale={isCurrentTree ? 2.0 : 1.0}
+                          // No onPress handler - trees are not clickable on tree detail page
+                        />
+                      );
+                    })}
+                  </Yamap>
+                )}
+              </View>
+            </>
+          ) : (
+            <View style={styles.noLocationContainer}>
+              <Text style={styles.noLocationText}>Информация о местоположении недоступна</Text>
+              <Text style={styles.noLocationSubtext}>
+                GPS координаты не были сохранены для этого дерева
+              </Text>
             </View>
-          </View>
-        )}
+          )}
+        </View>
 
         <View style={styles.descriptionContainer}>
           <View style={styles.descriptionHeader}>
@@ -1140,7 +1149,7 @@ const styles = StyleSheet.create({
   },
   emptyPhotos: {
     alignItems: 'center',
-    padding: 40,
+    padding: 20,
   },
   emptyPhotosText: {
     fontSize: 16,
@@ -1237,7 +1246,7 @@ const styles = StyleSheet.create({
   },
   emptyDefects: {
     alignItems: 'center',
-    padding: 40,
+    padding: 20,
   },
   emptyDefectsText: {
     fontSize: 16,
@@ -1246,6 +1255,23 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   emptyDefectsSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  noLocationContainer: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  noLocationText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  noLocationSubtext: {
     fontSize: 14,
     color: '#9ca3af',
     textAlign: 'center',

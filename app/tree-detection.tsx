@@ -23,23 +23,6 @@ import * as ImageManipulator from 'expo-image-manipulator';
 const { width: screenWidth } = Dimensions.get('window');
 const imageDisplayWidth = screenWidth - 32;
 
-// Mock GPS generation function
-const generateMockGPS = () => {
-  // Random coordinates within the specified rectangle
-  // NW: 55.80609867, 37.51982666
-  // NE: 55.80609867, 37.71137334
-  // SE: 55.69830133, 37.71137334
-  // SW: 55.69830133, 37.51982666
-  const minLat = 55.69830133;
-  const maxLat = 55.80609867;
-  const minLon = 37.51982666;
-  const maxLon = 37.71137334;
-  
-  const latitude = minLat + Math.random() * (maxLat - minLat);
-  const longitude = minLon + Math.random() * (maxLon - minLon);
-  
-  return { latitude, longitude };
-};
 
 
 type GPSStatus = 'determining' | 'unavailable' | 'available' | 'no-exif' | 'exif-available';
@@ -213,51 +196,20 @@ export default function TreeDetectionScreen() {
           );
         }
       } else {
-        // Fallback to mock data if no image URI
-        console.log('No image URI provided, using mock detection');
-        
-        // Mock ML detection - simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // Generate 3 random bounding boxes
-        const mockDetections: DetectedTree[] = [
-          {
-            id: '1',
-            x: 0.15,
-            y: 0.2,
-            width: 0.25,
-            height: 0.35,
-            xbr: 0.4,
-            ybr: 0.55,
-            selected: true,
-          },
-          {
-            id: '2',
-            x: 0.5,
-            y: 0.15,
-            width: 0.3,
-            height: 0.4,
-            xbr: 0.8,
-            ybr: 0.55,
-            selected: true,
-          },
-          {
-            id: '3',
-            x: 0.75,
-            y: 0.25,
-            width: 0.2,
-            height: 0.3,
-            xbr: 0.95,
-            ybr: 0.55,
-            selected: true,
-          },
-        ];
-        
-        setDetectedTrees(mockDetections);
+        // No image URI provided - this should not happen in normal flow
+        console.log('No image URI provided');
+        Alert.alert('Ошибка', 'Изображение не найдено. Пожалуйста, вернитесь и выберите изображение снова.');
+        router.back();
+        return;
       }
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось обнаружить деревья');
       console.error('Detection error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+      Alert.alert(
+        'Ошибка обнаружения', 
+        `Не удалось обработать изображение: ${errorMessage}\n\nПопробуйте другое изображение или проверьте подключение к интернету.`
+      );
+      router.back();
     } finally {
       setLoading(false);
     }
@@ -310,8 +262,9 @@ export default function TreeDetectionScreen() {
           // Continue without crop - don't fail the entire save operation
         }
 
-        // Use real GPS coordinates if available, otherwise fallback to mock
-        const { latitude, longitude } = gpsLocation || generateMockGPS();
+        // Use real GPS coordinates if available, otherwise use undefined
+        const latitude = gpsLocation?.latitude || undefined;
+        const longitude = gpsLocation?.longitude || undefined;
         
         const treeRecord = {
           imageUri: imageUri!,
