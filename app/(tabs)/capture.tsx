@@ -47,14 +47,14 @@ export default function CaptureScreen() {
           console.log('Image copied to document directory:', destinationUri);
           router.push({
             pathname: '/tree-detection',
-            params: { imageUri: destinationUri },
+            params: { imageUri: destinationUri, source: 'camera' },
           });
         } catch (copyError) {
           console.log('Failed to copy image, using original URI:', copyError);
           // Fallback to original URI if copy fails
           router.push({
             pathname: '/tree-detection',
-            params: { imageUri: result.assets[0].uri },
+            params: { imageUri: result.assets[0].uri, source: 'camera' },
           });
         }
       }
@@ -81,9 +81,32 @@ export default function CaptureScreen() {
         allowsEditing: false,
         aspect: [4, 3],
         quality: 0.8,
+        exif: true,
+        selectionLimit: 1
       });
 
       if (!result.canceled && result.assets[0]) {
+        // Extract EXIF location data if available
+        let exifLocation = null;
+        if (result.assets[0].exif) {
+          const exif = result.assets[0].exif;
+          console.log('EXIF data found:', exif);
+          
+          // Extract GPS coordinates from EXIF data
+          if (exif.GPSLatitude && exif.GPSLongitude && 
+              typeof exif.GPSLatitude === 'number' && typeof exif.GPSLongitude === 'number') {
+            exifLocation = { 
+              latitude: exif.GPSLatitude, 
+              longitude: exif.GPSLongitude 
+            };
+            console.log('EXIF GPS coordinates extracted:', exifLocation);
+          } else {
+            console.log('No GPS coordinates found in EXIF data or coordinates are not numbers');
+          }
+        } else {
+          console.log('No EXIF data available');
+        }
+
         // Copy gallery image to app's document directory for consistency
         try {
           const fileName = `tree_${Date.now()}.jpg`;
@@ -95,16 +118,33 @@ export default function CaptureScreen() {
           });
           
           console.log('Gallery image copied to document directory:', destinationUri);
+          
+          // Prepare navigation parameters
+          const params: any = { imageUri: destinationUri, source: 'gallery' };
+          if (exifLocation) {
+            params.latitude = exifLocation.latitude.toString();
+            params.longitude = exifLocation.longitude.toString();
+            params.hasExifLocation = 'true';
+          }
+          
           router.push({
             pathname: '/tree-detection',
-            params: { imageUri: destinationUri },
+            params,
           });
         } catch (copyError) {
           console.log('Failed to copy gallery image, using original URI:', copyError);
-          // Fallback to original URI if copy fails
+          
+          // Prepare navigation parameters for fallback
+          const params: any = { imageUri: result.assets[0].uri, source: 'gallery' };
+          if (exifLocation) {
+            params.latitude = exifLocation.latitude.toString();
+            params.longitude = exifLocation.longitude.toString();
+            params.hasExifLocation = 'true';
+          }
+          
           router.push({
             pathname: '/tree-detection',
-            params: { imageUri: result.assets[0].uri },
+            params,
           });
         }
       }

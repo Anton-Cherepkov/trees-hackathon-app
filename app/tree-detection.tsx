@@ -46,7 +46,13 @@ type GPSStatus = 'determining' | 'unavailable' | 'available' | 'no-exif' | 'exif
 type PhotoSource = 'camera' | 'gallery';
 
 export default function TreeDetectionScreen() {
-  const { imageUri } = useLocalSearchParams<{ imageUri: string }>();
+  const { imageUri, latitude, longitude, hasExifLocation, source } = useLocalSearchParams<{ 
+    imageUri: string;
+    latitude?: string;
+    longitude?: string;
+    hasExifLocation?: string;
+    source?: string;
+  }>();
   const [detectedTrees, setDetectedTrees] = useState<DetectedTree[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,8 +69,8 @@ export default function TreeDetectionScreen() {
     if (imageUri) {
       console.log('Image URI received:', imageUri);
       
-      // Determine photo source based on URI
-      const isFromGallery = imageUri.includes('file://') && !imageUri.includes('Camera');
+      // Determine photo source from passed parameter
+      const isFromGallery = source === 'gallery';
       setPhotoSource(isFromGallery ? 'gallery' : 'camera');
       
       runTreeDetection();
@@ -74,17 +80,28 @@ export default function TreeDetectionScreen() {
 
   const handleGPSLocation = async (imageUri: string, isFromGallery: boolean) => {
     if (isFromGallery) {
-      // For gallery photos, try to extract EXIF data first
-      setGpsStatus('determining');
-      const exifLocation = await extractEXIFLocation(imageUri);
-      
-      if (exifLocation) {
+      // For gallery photos, check if location was passed from capture screen
+      if (hasExifLocation === 'true' && latitude && longitude) {
+        const exifLocation = {
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude)
+        };
         setGpsLocation(exifLocation);
         setGpsStatus('exif-available');
-        console.log('EXIF GPS location found:', exifLocation);
+        console.log('EXIF GPS location from capture screen:', exifLocation);
       } else {
-        setGpsStatus('no-exif');
-        console.log('No EXIF GPS data found in gallery photo');
+        // Fallback: try to extract EXIF data directly
+        setGpsStatus('determining');
+        const exifLocation = await extractEXIFLocation(imageUri);
+        
+        if (exifLocation) {
+          setGpsLocation(exifLocation);
+          setGpsStatus('exif-available');
+          console.log('EXIF GPS location found via direct extraction:', exifLocation);
+        } else {
+          setGpsStatus('no-exif');
+          console.log('No EXIF GPS data found in gallery photo');
+        }
       }
     } else {
       // For camera photos, fetch current location
@@ -512,8 +529,8 @@ export default function TreeDetectionScreen() {
                   {gpsStatus === 'determining' && 'Определение геопозиции'}
                   {gpsStatus === 'unavailable' && 'Геопозиция недоступна'}
                   {gpsStatus === 'available' && 'Геопозиция сохранена'}
-                  {gpsStatus === 'exif-available' && 'Геопозиция из фото'}
-                  {gpsStatus === 'no-exif' && 'Нет данных о местоположении'}
+                  {gpsStatus === 'exif-available' && 'Сохранена геопозиция из фото'}
+                  {gpsStatus === 'no-exif' && 'Фото не содержит геопозицию'}
                 </Text>
               </View>
               
@@ -538,24 +555,26 @@ export default function TreeDetectionScreen() {
               {gpsStatus === 'no-exif' && (
                 <View style={styles.gpsStatusContent}>
                   <Text style={styles.gpsStatusMessage}>
-                    В этом фото нет данных о местоположении
+                  Вы можете добавить добавить геопозицию позднее в карточке дерева или
                   </Text>
                   <TouchableOpacity
-                    style={styles.gpsRetryButton}
+                    style={styles.gpsElegantButton}
                     onPress={useCurrentLocation}
                     disabled={gpsLoading}
                   >
-                    <MapPin size={16} color="#ffffff" />
-                    <Text style={styles.gpsRetryButtonText}>
-                      {gpsLoading ? 'Получение...' : 'Использовать текущую геолокацию'}
-                    </Text>
+                    <View style={styles.gpsElegantButtonContent}>
+                      <MapPin size={18} color="#ffffff" />
+                      <Text style={styles.gpsElegantButtonText}>
+                        {gpsLoading ? 'Получение...' : 'Использовать текущую геолокацию'}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               )}
               
-              {(gpsStatus === 'available' || gpsStatus === 'exif-available') && gpsLocation && (
-                <Text style={styles.gpsCoordinates}>
-                  {gpsLocation.latitude.toFixed(6)}, {gpsLocation.longitude.toFixed(6)}
+              {(gpsStatus === 'available' || gpsStatus === 'exif-available') && (
+                <Text style={styles.gpsRefinementMessage}>
+                  Геопозиция может быть уточнена позднее в карточке дерева
                 </Text>
               )}
             </View>
@@ -790,22 +809,22 @@ const styles = StyleSheet.create({
   },
   gpsStatusContainer: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
   gpsStatusHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   gpsStatusTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#6b7280',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   gpsStatusTitleSuccess: {
     color: '#22c55e',
@@ -814,13 +833,13 @@ const styles = StyleSheet.create({
     color: '#ef4444',
   },
   gpsStatusContent: {
-    marginTop: 8,
+    marginTop: 6,
   },
   gpsStatusMessage: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6b7280',
-    marginBottom: 12,
-    lineHeight: 20,
+    marginBottom: 10,
+    lineHeight: 18,
   },
   gpsRetryButton: {
     flexDirection: 'row',
@@ -836,10 +855,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
+  gpsElegantButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 6,
+    padding: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  gpsElegantButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6b7280',
+    borderRadius: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  gpsElegantButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#ffffff',
+    letterSpacing: 0.05,
+  },
   gpsCoordinates: {
     fontSize: 12,
     color: '#6b7280',
     fontFamily: 'monospace',
     marginTop: 4,
+  },
+  gpsRefinementMessage: {
+    fontSize: 10,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    marginTop: 3,
+    lineHeight: 14,
   },
 });
