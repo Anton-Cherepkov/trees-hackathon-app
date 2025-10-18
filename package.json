@@ -40,6 +40,7 @@
     "expo-symbols": "~0.4.5",
     "expo-system-ui": "~5.0.11",
     "expo-web-browser": "~14.2.0",
+    "h3-react-native": "github:lephuochoai/h3-react-native",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",
     "lucide-react-native": "^0.475.0",

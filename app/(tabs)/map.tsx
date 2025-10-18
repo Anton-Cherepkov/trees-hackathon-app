@@ -11,14 +11,14 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Yamap, Marker } from 'react-native-yamap-plus';
 import { getTreesForMap, calculateMapRegion, TreeWithMarkerInfo, getMapStyle } from '@/utils/mapUtils';
-import { TreePine, Navigation } from 'lucide-react-native';
+import { TreePine, Navigation, Grid3x3 } from 'lucide-react-native';
 import * as Location from 'expo-location';
 
 export default function MapScreen() {
   const [trees, setTrees] = useState<TreeWithMarkerInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [gpsLoading, setGpsLoading] = useState(false);
-  const mapRef = useRef<Yamap>(null);
+  const mapRef = useRef<any>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -65,7 +65,6 @@ export default function MapScreen() {
       // Get current location
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
-        timeout: 10000,
       });
 
       const { latitude, longitude } = location.coords;
@@ -84,6 +83,10 @@ export default function MapScreen() {
     } finally {
       setGpsLoading(false);
     }
+  };
+
+  const handleDensityMapPress = () => {
+    router.push('/hexagon-density-map');
   };
 
   const EmptyState = () => (
@@ -175,6 +178,14 @@ export default function MapScreen() {
           ) : (
             <Navigation size={24} color="#22c55e" />
           )}
+        </TouchableOpacity>
+
+        {/* Density Map Button - positioned over the map */}
+        <TouchableOpacity
+          style={styles.densityButton}
+          onPress={handleDensityMapPress}
+        >
+          <Grid3x3 size={24} color="#22c55e" />
         </TouchableOpacity>
 
         {/* Legend - positioned over the map */}
@@ -280,6 +291,25 @@ const styles = StyleSheet.create({
   gpsButtonDisabled: {
     backgroundColor: '#f3f4f6',
     borderColor: '#9ca3af',
+  },
+  densityButton: {
+    position: 'absolute',
+    bottom: 80,
+    right: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 1000,
+    borderWidth: 2,
+    borderColor: '#22c55e',
   },
   loadingContainer: {
     flex: 1,

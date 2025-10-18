@@ -26,7 +26,7 @@ yarn-error.*
 # macos
 .DS_Store
 *.pem
-
+yamap_documentation.md
 # local env files
 .env*.local
 .env
