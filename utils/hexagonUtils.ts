@@ -54,7 +54,7 @@ export const getTreesForHexagonMap = async (): Promise<TreeWithDefects[]> => {
 /**
  * Group trees by H3 hexagon cell ID
  */
-export const groupTreesByHexagon = (trees: TreeWithDefects[], resolution: number = 11): Map<string, TreeWithDefects[]> => {
+export const groupTreesByHexagon = (trees: TreeWithDefects[], resolution: number = 8): Map<string, TreeWithDefects[]> => {
   const hexagonMap = new Map<string, TreeWithDefects[]>();
   
   for (const tree of trees) {
@@ -122,7 +122,7 @@ export const hsvToRgb = (h: number, s: number, v: number): string => {
 
 /**
  * Get color for hexagon based on defect ratio
- * Maps ratio (0-1) to color (green→red in HSV space)
+ * Maps ratio (0-1) to color (green→red in HSV space) with 50% transparency
  */
 export const getHexagonColor = (ratio: number): string => {
   // Clamp ratio between 0 and 1
@@ -131,7 +131,15 @@ export const getHexagonColor = (ratio: number): string => {
   // Map ratio to hue: 120° (green) to 0° (red)
   const hue = 120 * (1 - clampedRatio);
   
-  return hsvToRgb(hue, 100, 100);
+  const rgbColor = hsvToRgb(hue, 100, 100);
+  
+  // Convert hex to RGBA with 50% transparency
+  const hex = rgbColor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  
+  return `rgba(${r}, ${g}, ${b}, 0.35)`;
 };
 
 /**

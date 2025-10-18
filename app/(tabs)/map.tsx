@@ -9,15 +9,18 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Yamap, Marker } from 'react-native-yamap-plus';
+import { ClusteredYamap, Marker, Yamap, Polygon } from 'react-native-yamap-plus';
 import { getTreesForMap, calculateMapRegion, TreeWithMarkerInfo, getMapStyle } from '@/utils/mapUtils';
+import { processHexagonData, HexagonData, getHexagonBoundary } from '@/utils/hexagonUtils';
 import { TreePine, Navigation, Grid3x3 } from 'lucide-react-native';
 import * as Location from 'expo-location';
 
 export default function MapScreen() {
   const [trees, setTrees] = useState<TreeWithMarkerInfo[]>([]);
+  const [hexagonData, setHexagonData] = useState<HexagonData[]>([]);
   const [loading, setLoading] = useState(true);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [showHexagonView, setShowHexagonView] = useState(false);
   const mapRef = useRef<any>(null);
   const router = useRouter();
 
@@ -39,6 +42,22 @@ export default function MapScreen() {
       setTrees(treesWithGPS);
     } catch (error) {
       console.error('Error loading trees for map:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadHexagonData = async () => {
+    try {
+      setLoading(true);
+      const data = await processHexagonData();
+      setHexagonData(data);
+    } catch (error) {
+      console.error('Error loading hexagon data:', error);
+      Alert.alert(
+        'Ошибка загрузки',
+        'Не удалось загрузить данные для карты плотности дефектов.'
+      );
     } finally {
       setLoading(false);
     }
@@ -85,8 +104,17 @@ export default function MapScreen() {
     }
   };
 
-  const handleDensityMapPress = () => {
-    router.push('/hexagon-density-map');
+  const handleDensityMapPress = async () => {
+    if (showHexagonView) {
+      setShowHexagonView(false);
+    } else {
+      await loadHexagonData();
+      setShowHexagonView(true);
+    }
+  };
+
+  const handleBackToMapPress = () => {
+    setShowHexagonView(false);
   };
 
   const EmptyState = () => (
@@ -126,46 +154,137 @@ export default function MapScreen() {
     );
   }
 
-  const mapRegion = calculateMapRegion(trees);
+  // Calculate map region based on current view
+  const mapRegion = showHexagonView 
+    ? (() => {
+        if (hexagonData.length === 0) {
+          return { lat: 55.7558, lon: 37.6176, zoom: 10 };
+        }
+        
+        const hexagonCenters = hexagonData.map(hex => {
+          const boundary = getHexagonBoundary(hex.hexagonId);
+          if (boundary.length === 0) return null;
+          
+          const avgLat = boundary.reduce((sum, coord) => sum + coord.lat, 0) / boundary.length;
+          const avgLon = boundary.reduce((sum, coord) => sum + coord.lon, 0) / boundary.length;
+          
+          return { lat: avgLat, lon: avgLon };
+        }).filter(Boolean) as { lat: number; lon: number }[];
+
+        if (hexagonCenters.length === 0) {
+          return { lat: 55.7558, lon: 37.6176, zoom: 10 };
+        }
+        
+        if (hexagonCenters.length === 1) {
+          return { lat: hexagonCenters[0].lat, lon: hexagonCenters[0].lon, zoom: 16 };
+        }
+        
+        const lats = hexagonCenters.map(center => center.lat);
+        const lons = hexagonCenters.map(center => center.lon);
+        
+        const minLat = Math.min(...lats);
+        const maxLat = Math.max(...lats);
+        const minLon = Math.min(...lons);
+        const maxLon = Math.max(...lons);
+        
+        const centerLat = (minLat + maxLat) / 2;
+        const centerLon = (minLon + maxLon) / 2;
+        
+        const latDiff = maxLat - minLat;
+        const lonDiff = maxLon - minLon;
+        const maxDiff = Math.max(latDiff, lonDiff);
+        
+        let zoom = 10;
+        if (maxDiff < 0.01) zoom = 16;
+        else if (maxDiff < 0.05) zoom = 14;
+        else if (maxDiff < 0.1) zoom = 12;
+        else if (maxDiff < 0.5) zoom = 10;
+        else zoom = 8;
+        
+        return { lat: centerLat, lon: centerLon, zoom };
+      })()
+    : calculateMapRegion(trees);
+
+  // Convert trees to clusteredMarkers format
+  const clusteredMarkers = trees.map((tree) => ({
+    point: {
+      lat: tree.latitude!,
+      lon: tree.longitude!,
+    },
+    data: {
+      id: tree.id,
+      markerIcon: tree.markerIcon,
+    },
+  }));
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Карта деревьев</Text>
+        <Text style={styles.title}>
+          {showHexagonView ? 'Карта плотности дефектов' : 'Карта деревьев'}
+        </Text>
         <Text style={styles.subtitle}>
-          {trees.length} {trees.length === 1 ? 'дерево' : trees.length < 5 ? 'дерева' : 'деревьев'} на карте
+          {showHexagonView 
+            ? `${hexagonData.length} ${hexagonData.length === 1 ? 'гексагон' : hexagonData.length < 5 ? 'гексагона' : 'гексагонов'} на карте`
+            : `${trees.length} ${trees.length === 1 ? 'дерево' : trees.length < 5 ? 'дерева' : 'деревьев'} на карте`
+          }
         </Text>
       </View>
 
       <View style={styles.mapContainer}>
-        <Yamap
-          ref={mapRef}
-          style={styles.map}
-          initialRegion={mapRegion}
-          logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
-          logoPadding={{ horizontal: 16, vertical: 16 }}
-          mapStyle={getMapStyle()}
-          onMapLoaded={() => {
-            console.log('Map loaded successfully');
-          }}
-        >
-          {trees.map((tree) => (
-            <Marker
-              key={tree.id}
-              point={{
-                lat: tree.latitude!,
-                lon: tree.longitude!,
-              }}
-              source={tree.markerIcon}
-              scale={1.0}
-              onPress={() => {
-                if (tree.id) {
-                  handleMarkerPress(tree.id);
-                }
-              }}
-            />
-          ))}
-        </Yamap>
+        {showHexagonView ? (
+          <Yamap
+            ref={mapRef}
+            style={styles.map}
+            initialRegion={mapRegion}
+            logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
+            logoPadding={{ horizontal: 16, vertical: 16 }}
+            mapStyle={getMapStyle()}
+          >
+            {hexagonData.map((hex, index) => {
+              const boundary = getHexagonBoundary(hex.hexagonId);
+              if (boundary.length === 0) return null;
+
+              return (
+                <Polygon
+                  key={hex.hexagonId}
+                  points={boundary}
+                  fillColor={hex.color}
+                  strokeColor="#ffffff"
+                  strokeWidth={1}
+                  zIndex={index}
+                />
+              );
+            })}
+          </Yamap>
+        ) : (
+          <ClusteredYamap
+            ref={mapRef}
+            style={styles.map}
+            initialRegion={mapRegion}
+            logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
+            logoPadding={{ horizontal: 16, vertical: 16 }}
+            mapStyle={getMapStyle()}
+            clusterColor="#22c55e"
+            clusteredMarkers={clusteredMarkers}
+            renderMarker={(info, index) => (
+              <Marker
+                key={index}
+                point={info.point}
+                source={info.data.markerIcon}
+                scale={1.0}
+                onPress={() => {
+                  if (info.data.id) {
+                    handleMarkerPress(info.data.id);
+                  }
+                }}
+              />
+            )}
+            onMapLoaded={() => {
+              console.log('Map loaded successfully');
+            }}
+          />
+        )}
         
         {/* GPS Button - positioned over the map */}
         <TouchableOpacity
@@ -180,28 +299,62 @@ export default function MapScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Density Map Button - positioned over the map */}
-        <TouchableOpacity
-          style={styles.densityButton}
-          onPress={handleDensityMapPress}
-        >
-          <Grid3x3 size={24} color="#22c55e" />
-        </TouchableOpacity>
+        {/* Back to Map Button - only shown in hexagon view */}
+        {showHexagonView && (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBackToMapPress}
+          >
+            <TreePine size={24} color="#22c55e" />
+          </TouchableOpacity>
+        )}
+
+        {/* Density Map Button - only shown in tree view */}
+        {!showHexagonView && (
+          <TouchableOpacity
+            style={styles.densityButton}
+            onPress={handleDensityMapPress}
+          >
+            <Grid3x3 size={24} color="#22c55e" />
+          </TouchableOpacity>
+        )}
 
         {/* Legend - positioned over the map */}
         <View style={styles.legendContainer}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendMarker, { backgroundColor: '#22c55e' }]} />
-            <Text style={styles.legendText}>Без дефектов</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendMarker, { backgroundColor: '#f97316' }]} />
-            <Text style={styles.legendText}>С дефектами</Text>
-          </View>
-          <View style={[styles.legendItem, { marginBottom: 0 }]}>
-            <View style={[styles.legendMarker, { backgroundColor: '#9ca3af' }]} />
-            <Text style={styles.legendText}>Не проанализировано ИИ</Text>
-          </View>
+          {showHexagonView ? (
+            <>
+              <Text style={styles.legendTitle}>Плотность дефектов</Text>
+              <View style={styles.legendGradient}>
+                <View style={[styles.legendColor, { backgroundColor: '#22c55e' }]} />
+                <View style={[styles.legendColor, { backgroundColor: '#84cc16' }]} />
+                <View style={[styles.legendColor, { backgroundColor: '#eab308' }]} />
+                <View style={[styles.legendColor, { backgroundColor: '#f97316' }]} />
+                <View style={[styles.legendColor, { backgroundColor: '#ef4444' }]} />
+              </View>
+              <View style={styles.legendLabels}>
+                <Text style={styles.legendLabel}>0%</Text>
+                <Text style={styles.legendLabel}>25%</Text>
+                <Text style={styles.legendLabel}>50%</Text>
+                <Text style={styles.legendLabel}>75%</Text>
+                <Text style={styles.legendLabel}>100%</Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendMarker, { backgroundColor: '#22c55e' }]} />
+                <Text style={styles.legendText}>Без дефектов</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendMarker, { backgroundColor: '#f97316' }]} />
+                <Text style={styles.legendText}>С дефектами</Text>
+              </View>
+              <View style={[styles.legendItem, { marginBottom: 0 }]}>
+                <View style={[styles.legendMarker, { backgroundColor: '#9ca3af' }]} />
+                <Text style={styles.legendText}>Не проанализировано ИИ</Text>
+              </View>
+            </>
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -262,6 +415,32 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flexShrink: 1,
   },
+  legendTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#374151',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  legendGradient: {
+    flexDirection: 'row',
+    marginBottom: 6,
+  },
+  legendColor: {
+    flex: 1,
+    height: 16,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  legendLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  legendLabel: {
+    fontSize: 10,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
   mapContainer: {
     flex: 1,
     position: 'relative',
@@ -293,6 +472,25 @@ const styles = StyleSheet.create({
     borderColor: '#9ca3af',
   },
   densityButton: {
+    position: 'absolute',
+    bottom: 80,
+    right: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 1000,
+    borderWidth: 2,
+    borderColor: '#22c55e',
+  },
+  backButton: {
     position: 'absolute',
     bottom: 80,
     right: 16,

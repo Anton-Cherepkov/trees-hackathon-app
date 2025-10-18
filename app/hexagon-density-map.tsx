@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Yamap, Polygon } from 'react-native-yamap-plus';
 import { processHexagonData, HexagonData, getHexagonBoundary } from '@/utils/hexagonUtils';
+import { getMapStyle } from '@/utils/mapUtils';
 import { X, Grid3x3 } from 'lucide-react-native';
 
 export default function HexagonDensityMapScreen() {
@@ -155,6 +156,7 @@ export default function HexagonDensityMapScreen() {
           initialRegion={mapRegion}
           logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
           logoPadding={{ horizontal: 16, vertical: 16 }}
+          mapStyle={getMapStyle()}
         >
           {hexagonData.map((hex, index) => {
             const boundary = getHexagonBoundary(hex.hexagonId);
