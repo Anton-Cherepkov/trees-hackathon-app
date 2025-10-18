@@ -261,10 +261,11 @@ export default function TreeListScreen() {
       font-weight: bold;
     }
     .date-col { width: 10%; }
-    .taxon-col { width: 15%; }
-    .photos-col { width: 30%; }
+    .location-col { width: 12%; }
+    .taxon-col { width: 13%; }
+    .photos-col { width: 25%; }
     .description-col { width: 15%; }
-    .defects-col { width: 30%; }
+    .defects-col { width: 25%; }
     .photo-container {
       display: flex;
       flex-direction: column;
@@ -319,6 +320,7 @@ export default function TreeListScreen() {
     <thead>
       <tr>
         <th class="date-col">Дата</th>
+        <th class="location-col">Местоположение</th>
         <th class="taxon-col">Таксон</th>
         <th class="photos-col">Фотографии</th>
         <th class="description-col">Описание</th>
@@ -329,6 +331,7 @@ export default function TreeListScreen() {
       ${treesWithDefects.map((tree, index) => `
         <tr>
           <td class="date-col">${new Date(tree.dateTaken).toLocaleDateString('ru-RU')}</td>
+          <td class="location-col">${tree.latitude && tree.longitude ? `${tree.latitude.toFixed(6)}°, ${tree.longitude.toFixed(6)}°` : 'Не указано'}</td>
           <td class="taxon-col">${tree.taxonName || 'Не определен'}</td>
           <td class="photos-col">
             <div class="photo-container">
