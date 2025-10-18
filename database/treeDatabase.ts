@@ -43,6 +43,15 @@ class TreeDatabase {
     }
 
     try {
+      // Close existing connection if any
+      if (this.db) {
+        try {
+          await this.db.closeAsync();
+        } catch (error) {
+          console.log('Error closing existing database connection:', error);
+        }
+      }
+      
       this.db = await SQLite.openDatabaseAsync('trees.db', {useNewConnection: true});
       
       await this.db.execAsync(`
@@ -160,12 +169,19 @@ class TreeDatabase {
   }
 
   async getAllTrees(): Promise<TreeRecord[]> {
-    if (!this.db || !this.initialized) {
-      await this.init();
-    }
-    
     try {
-      const rows = await this.db!.getAllAsync('SELECT * FROM trees ORDER BY dateTaken DESC');
+      // Ensure database is initialized
+      if (!this.db || !this.initialized) {
+        await this.init();
+      }
+      
+      // Check if database is still valid
+      if (!this.db) {
+        console.error('Database not available for getAllTrees');
+        return [];
+      }
+      
+      const rows = await this.db.getAllAsync('SELECT * FROM trees ORDER BY dateTaken DESC');
       
       return rows.map((row: any) => ({
         id: row.id,
@@ -186,7 +202,8 @@ class TreeDatabase {
       }));
     } catch (error) {
       console.error('Get all trees error:', error);
-      throw error;
+      // Return empty array instead of throwing to prevent app crash
+      return [];
     }
   }
 
@@ -298,6 +315,14 @@ class TreeDatabase {
     }
   }
 
+  // Force reinitialize database connection
+  async reinitialize(): Promise<void> {
+    console.log('Reinitializing database connection...');
+    this.initialized = false;
+    this.db = null;
+    await this.init();
+  }
+
   // Defect-related methods
   async insertDefect(defect: Omit<DefectRecord, 'defect_id'>): Promise<number> {
     if (!this.db || !this.initialized) {
@@ -328,12 +353,19 @@ class TreeDatabase {
   }
 
   async getDefectsByTreeId(treeId: number): Promise<DefectRecord[]> {
-    if (!this.db || !this.initialized) {
-      await this.init();
-    }
-    
     try {
-      const rows = await this.db!.getAllAsync(
+      // Ensure database is initialized
+      if (!this.db || !this.initialized) {
+        await this.init();
+      }
+      
+      // Check if database is still valid
+      if (!this.db) {
+        console.error('Database not available for getDefectsByTreeId');
+        return [];
+      }
+      
+      const rows = await this.db.getAllAsync(
         'SELECT * FROM defects WHERE tree_id = ? ORDER BY defect_id ASC',
         [treeId]
       );
@@ -351,7 +383,8 @@ class TreeDatabase {
       }));
     } catch (error) {
       console.error('Get defects by tree id error:', error);
-      throw error;
+      // Return empty array instead of throwing to prevent app crash
+      return [];
     }
   }
 

@@ -21,6 +21,11 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(true);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [showHexagonView, setShowHexagonView] = useState(false);
+  const [currentRegion, setCurrentRegion] = useState<any>(null);
+  const [hexagonCache, setHexagonCache] = useState<HexagonData[] | null>(null);
+  const [isHexagonCacheValid, setIsHexagonCacheValid] = useState(false);
+  const [isFromOtherScreen, setIsFromOtherScreen] = useState(true);
+
   const mapRef = useRef<any>(null);
   const router = useRouter();
 
@@ -28,10 +33,15 @@ export default function MapScreen() {
     loadTrees();
   }, []);
 
+
   // Reload trees when screen comes into focus (e.g., after AI analysis)
   useFocusEffect(
     React.useCallback(() => {
       loadTrees();
+      // Mark that user is coming from another screen
+      console.log('Screen focused - user coming from another screen');
+      setIsFromOtherScreen(true);
+      setIsHexagonCacheValid(false);
     }, [])
   );
 
@@ -42,16 +52,46 @@ export default function MapScreen() {
       setTrees(treesWithGPS);
     } catch (error) {
       console.error('Error loading trees for map:', error);
+      // If database error, try to reinitialize and retry once
+      if (error instanceof Error && error.message && error.message.includes('NativeStatement')) {
+        console.log('Database connection error detected, attempting to reinitialize...');
+        try {
+          const { treeDatabase } = await import('@/database/treeDatabase');
+          await treeDatabase.reinitialize();
+          const treesWithGPS = await getTreesForMap(null);
+          setTrees(treesWithGPS);
+        } catch (retryError) {
+          console.error('Retry failed:', retryError);
+          setTrees([]);
+        }
+      } else {
+        setTrees([]);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const loadHexagonData = async () => {
+  const loadHexagonData = async (forceRecalculate = false) => {
     try {
+      // Use cache if available and valid, unless force recalculate or coming from other screen
+      if (hexagonCache && isHexagonCacheValid && !forceRecalculate && !isFromOtherScreen) {
+        console.log('Using cached hexagon data');
+        setHexagonData(hexagonCache);
+        return;
+      }
+
       setLoading(true);
+      console.log('Calculating new hexagon data...', isFromOtherScreen ? '(from other screen)' : '(force recalculate)');
       const data = await processHexagonData();
+      
+      // Cache the calculated data
+      setHexagonCache(data);
+      setIsHexagonCacheValid(true);
       setHexagonData(data);
+      
+      // Reset the flag after calculation
+      setIsFromOtherScreen(false);
     } catch (error) {
       console.error('Error loading hexagon data:', error);
       Alert.alert(
@@ -104,17 +144,61 @@ export default function MapScreen() {
     }
   };
 
+  const saveCurrentRegion = (callback?: () => void) => {
+    if (mapRef.current) {
+      // Get both camera position and visible region for complete state
+      mapRef.current.getCameraPosition((position: any) => {
+        mapRef.current.getVisibleRegion((region: any) => {
+          const savedRegion = {
+            lat: position.point.lat,
+            lon: position.point.lon,
+            zoom: position.zoom,
+            azimuth: position.azimuth,
+            tilt: position.tilt,
+            visibleRegion: region
+          };
+          setCurrentRegion(savedRegion);
+          // Call callback after state is set
+          if (callback) {
+            setTimeout(callback, 50); // Small delay to ensure state update
+          }
+        });
+      });
+    } else {
+      if (callback) callback();
+    }
+  };
+
+
   const handleDensityMapPress = async () => {
     if (showHexagonView) {
-      setShowHexagonView(false);
+      // Save current region before switching
+      saveCurrentRegion(() => {
+        console.log('Switching from hexagon to tree view - no recalculation needed');
+        setShowHexagonView(false);
+      });
     } else {
-      await loadHexagonData();
-      setShowHexagonView(true);
+      // Save current region before switching
+      saveCurrentRegion(async () => {
+        console.log('Switching from tree to hexagon view - using cache if available');
+        // Load hexagon data (will use cache if available, unless coming from other screen)
+        await loadHexagonData();
+        setShowHexagonView(true);
+      });
     }
   };
 
   const handleBackToMapPress = () => {
-    setShowHexagonView(false);
+    // Save current region before switching
+    saveCurrentRegion(() => {
+      console.log('Back to tree view - no recalculation needed');
+      setShowHexagonView(false);
+    });
+  };
+
+  const handleRefreshHexagons = async () => {
+    // Force recalculate hexagon data
+    await loadHexagonData(true);
   };
 
   const EmptyState = () => (
@@ -154,56 +238,16 @@ export default function MapScreen() {
     );
   }
 
-  // Calculate map region based on current view
-  const mapRegion = showHexagonView 
-    ? (() => {
-        if (hexagonData.length === 0) {
-          return { lat: 55.7558, lon: 37.6176, zoom: 10 };
-        }
-        
-        const hexagonCenters = hexagonData.map(hex => {
-          const boundary = getHexagonBoundary(hex.hexagonId);
-          if (boundary.length === 0) return null;
-          
-          const avgLat = boundary.reduce((sum, coord) => sum + coord.lat, 0) / boundary.length;
-          const avgLon = boundary.reduce((sum, coord) => sum + coord.lon, 0) / boundary.length;
-          
-          return { lat: avgLat, lon: avgLon };
-        }).filter(Boolean) as { lat: number; lon: number }[];
-
-        if (hexagonCenters.length === 0) {
-          return { lat: 55.7558, lon: 37.6176, zoom: 10 };
-        }
-        
-        if (hexagonCenters.length === 1) {
-          return { lat: hexagonCenters[0].lat, lon: hexagonCenters[0].lon, zoom: 16 };
-        }
-        
-        const lats = hexagonCenters.map(center => center.lat);
-        const lons = hexagonCenters.map(center => center.lon);
-        
-        const minLat = Math.min(...lats);
-        const maxLat = Math.max(...lats);
-        const minLon = Math.min(...lons);
-        const maxLon = Math.max(...lons);
-        
-        const centerLat = (minLat + maxLat) / 2;
-        const centerLon = (minLon + maxLon) / 2;
-        
-        const latDiff = maxLat - minLat;
-        const lonDiff = maxLon - minLon;
-        const maxDiff = Math.max(latDiff, lonDiff);
-        
-        let zoom = 10;
-        if (maxDiff < 0.01) zoom = 16;
-        else if (maxDiff < 0.05) zoom = 14;
-        else if (maxDiff < 0.1) zoom = 12;
-        else if (maxDiff < 0.5) zoom = 10;
-        else zoom = 8;
-        
-        return { lat: centerLat, lon: centerLon, zoom };
-      })()
-    : calculateMapRegion(trees);
+  // Calculate InitialRegion - use saved region if available, otherwise use default
+  const initialRegion = currentRegion 
+    ? {
+        lat: currentRegion.lat,
+        lon: currentRegion.lon,
+        zoom: currentRegion.zoom,
+        azimuth: currentRegion.azimuth,
+        tilt: currentRegion.tilt
+      }
+    : { lat: 55.75598562797027, lon: 37.617383149475614, zoom: 10 };
 
   // Convert trees to clusteredMarkers format
   const clusteredMarkers = trees.map((tree) => ({
@@ -236,10 +280,13 @@ export default function MapScreen() {
           <Yamap
             ref={mapRef}
             style={styles.map}
-            initialRegion={mapRegion}
+            initialRegion={initialRegion}
             logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
             logoPadding={{ horizontal: 16, vertical: 16 }}
             mapStyle={getMapStyle()}
+            onMapLoaded={() => {
+              console.log('Hexagon map loaded successfully');
+            }}
           >
             {hexagonData.map((hex, index) => {
               const boundary = getHexagonBoundary(hex.hexagonId);
@@ -261,7 +308,7 @@ export default function MapScreen() {
           <ClusteredYamap
             ref={mapRef}
             style={styles.map}
-            initialRegion={mapRegion}
+            initialRegion={initialRegion}
             logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
             logoPadding={{ horizontal: 16, vertical: 16 }}
             mapStyle={getMapStyle()}
