@@ -413,6 +413,31 @@ class TreeDatabase {
       throw error;
     }
   }
+
+  async getAllDefectTypes(): Promise<string[]> {
+    try {
+      // Ensure database is initialized
+      if (!this.db || !this.initialized) {
+        await this.init();
+      }
+      
+      // Check if database is still valid
+      if (!this.db) {
+        console.error('Database not available for getAllDefectTypes');
+        return [];
+      }
+      
+      const rows = await this.db.getAllAsync(
+        'SELECT DISTINCT defect_type FROM defects ORDER BY defect_type ASC'
+      );
+      
+      return rows.map((row: any) => row.defect_type);
+    } catch (error) {
+      console.error('Get all defect types error:', error);
+      // Return empty array instead of throwing to prevent app crash
+      return [];
+    }
+  }
 }
 
 export const treeDatabase = new TreeDatabase();

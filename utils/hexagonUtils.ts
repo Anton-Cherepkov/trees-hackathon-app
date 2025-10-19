@@ -10,6 +10,7 @@ export interface HexagonData {
 
 export interface TreeWithDefects extends TreeRecord {
   hasDefects: boolean;
+  defects: DefectRecord[];
 }
 
 /**
@@ -41,6 +42,7 @@ export const getTreesForHexagonMap = async (): Promise<TreeWithDefects[]> => {
       treesWithDefects.push({
         ...tree,
         hasDefects,
+        defects,
       });
     }
     
@@ -82,6 +84,26 @@ export const calculateHexagonDefectRatio = (trees: TreeWithDefects[]): number =>
   
   const treesWithDefects = trees.filter(tree => tree.hasDefects);
   return treesWithDefects.length / trees.length;
+};
+
+/**
+ * Calculate defect ratio for each hexagon by specific defect type
+ */
+export const calculateHexagonDefectRatioByType = (trees: TreeWithDefects[], defectType: string | null): number => {
+  if (trees.length === 0) return 0;
+  
+  if (defectType === null) {
+    // If no specific defect type, use the original logic (any defect)
+    const treesWithDefects = trees.filter(tree => tree.hasDefects);
+    return treesWithDefects.length / trees.length;
+  }
+  
+  // Filter trees that have at least one defect of the specified type
+  const treesWithSpecificDefect = trees.filter(tree => 
+    tree.defects.some(defect => defect.defect_type === defectType)
+  );
+  
+  return treesWithSpecificDefect.length / trees.length;
 };
 
 /**
@@ -161,7 +183,7 @@ export const getHexagonBoundary = (hexagonId: string): { lat: number; lon: numbe
 /**
  * Process all trees and create hexagon data for visualization
  */
-export const processHexagonData = async (): Promise<HexagonData[]> => {
+export const processHexagonData = async (defectType: string | null = null): Promise<HexagonData[]> => {
   try {
     const trees = await getTreesForHexagonMap();
     const hexagonMap = groupTreesByHexagon(trees);
@@ -169,7 +191,7 @@ export const processHexagonData = async (): Promise<HexagonData[]> => {
     const hexagonData: HexagonData[] = [];
     
     for (const [hexagonId, hexagonTrees] of hexagonMap) {
-      const defectRatio = calculateHexagonDefectRatio(hexagonTrees);
+      const defectRatio = calculateHexagonDefectRatioByType(hexagonTrees, defectType);
       const color = getHexagonColor(defectRatio);
       
       hexagonData.push({

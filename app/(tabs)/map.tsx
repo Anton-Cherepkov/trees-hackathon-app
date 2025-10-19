@@ -12,7 +12,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { ClusteredYamap, Marker, Yamap, Polygon } from 'react-native-yamap-plus';
 import { getTreesForMap, calculateMapRegion, TreeWithMarkerInfo, getMapStyle } from '@/utils/mapUtils';
 import { processHexagonData, HexagonData, getHexagonBoundary } from '@/utils/hexagonUtils';
-import { TreePine, Navigation, Grid3x3 } from 'lucide-react-native';
+import { treeDatabase } from '@/database/treeDatabase';
+import { TreePine, Navigation, Grid3x3, HelpCircle } from 'lucide-react-native';
 import * as Location from 'expo-location';
 
 export default function MapScreen() {
@@ -22,6 +23,11 @@ export default function MapScreen() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [showHexagonView, setShowHexagonView] = useState(false);
   const [currentRegion, setCurrentRegion] = useState<any>(null);
+  const [selectedDefectType, setSelectedDefectType] = useState<string | null>(null);
+  const [availableDefectTypes, setAvailableDefectTypes] = useState<string[]>([]);
+  const [showDefectTypePicker, setShowDefectTypePicker] = useState(false);
+  const [dropdownHeight, setDropdownHeight] = useState(0);
+  const [showHeatmapExplanation, setShowHeatmapExplanation] = useState(false);
 
   const mapRef = useRef<any>(null);
   const router = useRouter();
@@ -65,10 +71,20 @@ export default function MapScreen() {
     }
   };
 
+  const loadDefectTypes = async () => {
+    try {
+      const defectTypes = await treeDatabase.getAllDefectTypes();
+      setAvailableDefectTypes(defectTypes);
+    } catch (error) {
+      console.error('Error loading defect types:', error);
+      setAvailableDefectTypes([]);
+    }
+  };
+
   const loadHexagonData = async () => {
     try {
       setLoading(true);
-      const data = await processHexagonData();
+      const data = await processHexagonData(selectedDefectType);
       setHexagonData(data);
     } catch (error) {
       console.error('Error loading hexagon data:', error);
@@ -159,6 +175,7 @@ export default function MapScreen() {
       // Save current region before switching
       saveCurrentRegion(async () => {
         console.log('Switching from tree to hexagon view');
+        await loadDefectTypes();
         await loadHexagonData();
         setShowHexagonView(true);
       });
@@ -176,6 +193,20 @@ export default function MapScreen() {
   const handleRefreshHexagons = async () => {
     // Recalculate hexagon data
     await loadHexagonData();
+  };
+
+  const handleDefectTypeChange = async (defectType: string | null) => {
+    setSelectedDefectType(defectType);
+    setShowDefectTypePicker(false);
+    
+    // Save current region before switching defect types
+    saveCurrentRegion(async () => {
+      console.log('Switching defect type to:', defectType || 'Любой дефект');
+      // Small delay to allow legend to re-render and update height
+      setTimeout(async () => {
+        await loadHexagonData();
+      }, 100);
+    });
   };
 
   const EmptyState = () => (
@@ -344,10 +375,26 @@ export default function MapScreen() {
         )}
 
         {/* Legend - positioned over the map */}
-        <View style={styles.legendContainer}>
+        <View style={[styles.legendContainer, { top: showHexagonView ? 16 + dropdownHeight + 8 : 16 }]}>
           {showHexagonView ? (
             <>
-              <Text style={styles.legendTitle}>Плотность дефектов</Text>
+              <View style={styles.legendTitleContainer}>
+                <Text style={styles.legendTitle}>
+                  {selectedDefectType ? (
+                    <>
+                      Плотность деревьев с дефектом <Text style={styles.legendTitleItalic}>{selectedDefectType}</Text>
+                    </>
+                  ) : (
+                    'Плотность дефектных деревьев'
+                  )}
+                </Text>
+                <TouchableOpacity
+                  style={styles.helpButton}
+                  onPress={() => setShowHeatmapExplanation(true)}
+                >
+                  <HelpCircle size={16} color="#6b7280" />
+                </TouchableOpacity>
+              </View>
               <View style={styles.legendGradient}>
                 <View style={[styles.legendColor, { backgroundColor: '#22c55e' }]} />
                 <View style={[styles.legendColor, { backgroundColor: '#84cc16' }]} />
@@ -380,6 +427,90 @@ export default function MapScreen() {
             </>
           )}
         </View>
+
+        {/* Defect Type Picker - only shown in hexagon view */}
+        {showHexagonView && (
+          <View style={styles.defectTypeContainer}>
+            <TouchableOpacity
+              style={styles.defectTypePicker}
+              onPress={() => setShowDefectTypePicker(true)}
+              onLayout={(event) => {
+                const { height } = event.nativeEvent.layout;
+                setDropdownHeight(height);
+              }}
+            >
+              <Text style={styles.defectTypePickerText}>
+                {selectedDefectType || 'Любой дефект'}
+              </Text>
+              <Text style={styles.defectTypePickerArrow}>▼</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Defect Type Picker Modal */}
+        {showDefectTypePicker && (
+          <View style={styles.defectTypeModal}>
+            <View style={styles.defectTypeModalContent}>
+              <Text style={styles.defectTypeModalTitle}>Выберите тип дефекта</Text>
+              <TouchableOpacity
+                style={styles.defectTypeOption}
+                onPress={() => handleDefectTypeChange(null)}
+              >
+                <Text style={styles.defectTypeOptionText}>Любой дефект</Text>
+                {selectedDefectType === null && <Text style={styles.defectTypeCheckmark}>✓</Text>}
+              </TouchableOpacity>
+              {availableDefectTypes.map((defectType) => (
+                <TouchableOpacity
+                  key={defectType}
+                  style={styles.defectTypeOption}
+                  onPress={() => handleDefectTypeChange(defectType)}
+                >
+                  <Text style={styles.defectTypeOptionText}>{defectType}</Text>
+                  {selectedDefectType === defectType && <Text style={styles.defectTypeCheckmark}>✓</Text>}
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={styles.defectTypeCancel}
+                onPress={() => setShowDefectTypePicker(false)}
+              >
+                <Text style={styles.defectTypeCancelText}>Отмена</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Heatmap Explanation Modal */}
+        {showHeatmapExplanation && (
+          <View style={styles.defectTypeModal}>
+            <View style={styles.defectTypeModalContent}>
+              <Text style={styles.defectTypeModalTitle}>Как рассчитывается тепловая карта</Text>
+              <View style={styles.explanationContent}>
+                <Text style={styles.explanationText}>
+                  <Text style={styles.explanationBold}>Метрика:</Text> Доля деревьев с дефектами в каждом гексагоне
+                </Text>
+                <Text style={styles.explanationText}>
+                  <Text style={styles.explanationBold}>Расчет:</Text> Количество деревьев с дефектами ÷ Общее количество деревьев × 100%
+                </Text>
+                {selectedDefectType && (
+                  <Text style={styles.explanationText}>
+                    <Text style={styles.explanationBold}>Фильтр:</Text> Показываются только деревья с дефектом "{selectedDefectType}"
+                  </Text>
+                )}
+                {!selectedDefectType && (
+                  <Text style={styles.explanationText}>
+                    <Text style={styles.explanationBold}>Фильтр:</Text> Показываются все деревья с любыми дефектами
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity
+                style={styles.defectTypeCancel}
+                onPress={() => setShowHeatmapExplanation(false)}
+              >
+                <Text style={styles.defectTypeCancelText}>Понятно</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -419,6 +550,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     zIndex: 1000,
+    width: 200,
   },
   legendItem: {
     flexDirection: 'row',
@@ -439,12 +571,27 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flexShrink: 1,
   },
+  legendTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   legendTitle: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#374151',
-    marginBottom: 8,
     textAlign: 'center',
+  },
+  legendTitleItalic: {
+    fontStyle: 'italic',
+  },
+  helpButton: {
+    marginLeft: 6,
+    marginRight: 8,
+    padding: 2,
+    borderRadius: 10,
+    backgroundColor: 'rgba(107, 114, 128, 0.1)',
   },
   legendGradient: {
     flexDirection: 'row',
@@ -561,5 +708,117 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  defectTypeContainer: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 1000,
+    width: 200, // Match the legend container width
+  },
+  defectTypePicker: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%', // Use full container width
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  defectTypePickerText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+    flex: 1,
+  },
+  defectTypePickerArrow: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginLeft: 8,
+  },
+  defectTypeModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2000,
+  },
+  defectTypeModalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    margin: 20,
+    maxHeight: '70%',
+    minWidth: 280,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  defectTypeModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  defectTypeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  defectTypeOptionText: {
+    fontSize: 16,
+    color: '#374151',
+    flex: 1,
+  },
+  defectTypeCheckmark: {
+    fontSize: 16,
+    color: '#22c55e',
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  defectTypeCancel: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+  defectTypeCancelText: {
+    fontSize: 16,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  explanationContent: {
+    marginBottom: 16,
+  },
+  explanationText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  explanationBold: {
+    fontWeight: 'bold',
+    color: '#111827',
   },
 });
