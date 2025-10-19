@@ -11,7 +11,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ClusteredYamap, Marker, Yamap, Polygon } from 'react-native-yamap-plus';
 import { getTreesForMap, calculateMapRegion, TreeWithMarkerInfo, getMapStyle } from '@/utils/mapUtils';
-import { processHexagonData, HexagonData, getHexagonBoundary } from '@/utils/hexagonUtils';
+import { processHexagonData, HexagonData, getHexagonBoundary, getHexagonColor } from '@/utils/hexagonUtils';
 import { treeDatabase } from '@/database/treeDatabase';
 import { TreePine, Navigation, Grid3x3, HelpCircle } from 'lucide-react-native';
 import * as Location from 'expo-location';
@@ -327,7 +327,7 @@ export default function MapScreen() {
                 key={index}
                 point={info.point}
                 source={info.data.markerIcon}
-                scale={1.0}
+                scale={0.7}
                 onPress={() => {
                   if (info.data.id) {
                     handleMarkerPress(info.data.id);
@@ -396,11 +396,48 @@ export default function MapScreen() {
                 </TouchableOpacity>
               </View>
               <View style={styles.legendGradient}>
-                <View style={[styles.legendColor, { backgroundColor: '#22c55e' }]} />
-                <View style={[styles.legendColor, { backgroundColor: '#84cc16' }]} />
-                <View style={[styles.legendColor, { backgroundColor: '#eab308' }]} />
-                <View style={[styles.legendColor, { backgroundColor: '#f97316' }]} />
-                <View style={[styles.legendColor, { backgroundColor: '#ef4444' }]} />
+                {Array.from({ length: 50 }, (_, index) => {
+                  // Sample 50 points in interval [0, 1]
+                  const ratio = index / 49; // 0 to 1
+                  
+                  // Use getHexagonColor method to get the color
+                  const rgbaColor = getHexagonColor(ratio);
+                  
+                  // Extract RGB values and ignore alpha channel
+                  const rgbaMatch = rgbaColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*[\d.]+\)/);
+                  if (!rgbaMatch) {
+                    // Fallback to a default color if parsing fails
+                    return (
+                      <View 
+                        key={index}
+                        style={[
+                          styles.legendColor, 
+                          { 
+                            backgroundColor: '#22c55e',
+                            borderWidth: 0,
+                          }
+                        ]} 
+                      />
+                    );
+                  }
+                  
+                  const r = parseInt(rgbaMatch[1], 10);
+                  const g = parseInt(rgbaMatch[2], 10);
+                  const b = parseInt(rgbaMatch[3], 10);
+                  
+                  return (
+                    <View 
+                      key={index}
+                      style={[
+                        styles.legendColor, 
+                        { 
+                          backgroundColor: `rgb(${r}, ${g}, ${b})`,
+                          borderWidth: 0, // Remove borders for smoother look
+                        }
+                      ]} 
+                    />
+                  );
+                })}
               </View>
               <View style={styles.legendLabels}>
                 <Text style={styles.legendLabel}>0%</Text>
@@ -550,7 +587,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     zIndex: 1000,
-    width: 200,
+    width: 220, // Increased width for continuous gradient
   },
   legendItem: {
     flexDirection: 'row',
@@ -600,7 +637,7 @@ const styles = StyleSheet.create({
   legendColor: {
     flex: 1,
     height: 16,
-    borderWidth: 0.5,
+    borderWidth: 0, // Remove borders for continuous gradient
     borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   legendLabels: {
@@ -714,7 +751,7 @@ const styles = StyleSheet.create({
     top: 16,
     right: 16,
     zIndex: 1000,
-    width: 200, // Match the legend container width
+    width: 220, // Match the legend container width
   },
   defectTypePicker: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',

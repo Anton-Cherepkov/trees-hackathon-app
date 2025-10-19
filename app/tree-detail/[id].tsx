@@ -24,7 +24,7 @@ import { processDefectsForTree } from '@/utils/defectDetection';
 import { DefectRecord } from '@/database/treeDatabase';
 import Svg, { Rect } from 'react-native-svg';
 import { Yamap, Marker } from 'react-native-yamap-plus';
-import { getTreesForMap, calculateTreeDetailMapRegion, TreeWithMarkerInfo, getMapStyle } from '@/utils/mapUtils';
+import { getTreesForMap, calculateTreeDetailMapRegion, TreeWithMarkerInfo, getMapStyle, getMarkerIconWithSelection } from '@/utils/mapUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
 const imageDisplayWidth = screenWidth - 32;
@@ -658,6 +658,9 @@ export default function TreeDetailScreen() {
                   >
                     {mapTrees.map((mapTree) => {
                       const isCurrentTree = mapTree.id === tree.id;
+                      // Get the appropriate marker icon with selection state
+                      const markerIcon = getMarkerIconWithSelection(mapTree, mapTree.hasDefects, isCurrentTree);
+                      
                       return (
                         <Marker
                           key={mapTree.id}
@@ -665,8 +668,8 @@ export default function TreeDetailScreen() {
                             lat: mapTree.latitude!,
                             lon: mapTree.longitude!,
                           }}
-                          source={mapTree.markerIcon}
-                          scale={isCurrentTree ? 2.0 : 1.0}
+                          source={markerIcon}
+                          scale={isCurrentTree ? 1.0 : 0.7}
                           // No onPress handler - trees are not clickable on tree detail page
                         />
                       );

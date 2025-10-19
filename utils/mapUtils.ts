@@ -130,6 +130,34 @@ export const getMarkerIcon = (tree: TreeRecord, hasDefects: boolean): any => {
 };
 
 /**
+ * Get appropriate marker icon for a tree based on its status and selection state
+ * @param tree - Tree record
+ * @param hasDefects - Whether the tree has defects
+ * @param isSelected - Whether this tree is currently selected
+ * @returns Marker icon (require() result)
+ */
+export const getMarkerIconWithSelection = (tree: TreeRecord, hasDefects: boolean, isSelected: boolean): any => {
+  // No taxon predicted - gray marker
+  if (!tree.taxonName) {
+    return isSelected 
+      ? require('@/assets/images/tree_map_marker_gray_selected.png')
+      : require('@/assets/images/tree_map_marker_gray.png');
+  }
+  
+  // Has taxon but no defects - green marker
+  if (!hasDefects) {
+    return isSelected
+      ? require('@/assets/images/tree_map_marker_green_selected.png')
+      : require('@/assets/images/tree_map_marker_green.png');
+  }
+  
+  // Has taxon and has defects - orange marker
+  return isSelected
+    ? require('@/assets/images/tree_map_marker_orange_selected.png')
+    : require('@/assets/images/tree_map_marker_orange.png');
+};
+
+/**
  * Calculate map region to show 400x400m area around a specific tree
  * @param tree - Tree with GPS coordinates
  * @returns Map region centered on the tree with appropriate zoom
