@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { treeDatabase, TreeRecord } from '@/database/treeDatabase';
-import { ArrowLeft, Save, Trash2, Camera, Image as ImageIcon, Wand as Wand2, Calendar, Copy } from 'lucide-react-native';
+import { ArrowLeft, Save, Trash2, Camera, Image as ImageIcon, Wand as Wand2, Calendar, Copy, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { classifyTreeImage, formatClassificationResult, extractTaxonName } from '@/utils/treeClassifier';
@@ -24,7 +24,8 @@ import { processDefectsForTree } from '@/utils/defectDetection';
 import { DefectRecord } from '@/database/treeDatabase';
 import Svg, { Rect } from 'react-native-svg';
 import { Yamap, Marker } from 'react-native-yamap-plus';
-import { getTreesForMap, calculateTreeDetailMapRegion, TreeWithMarkerInfo, getMapStyle, getMarkerIconWithSelection } from '@/utils/mapUtils';
+import { getTreesForMap, calculateTreeDetailMapRegion, TreeWithMarkerInfo, getMapStyle, getMarkerIconWithSelection, calculateDistanceMeters } from '@/utils/mapUtils';
+import { cropTreeWithDimensions } from '@/utils/treeCropper';
 
 const { width: screenWidth } = Dimensions.get('window');
 const imageDisplayWidth = screenWidth - 32;
@@ -43,7 +44,53 @@ export default function TreeDetailScreen() {
   const [selectedDefectImage, setSelectedDefectImage] = useState<string | null>(null);
   const [mapTrees, setMapTrees] = useState<TreeWithMarkerInfo[]>([]);
   const [mapLoading, setMapLoading] = useState(false);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyIndex, setNearbyIndex] = useState(0);
+  const [nearbyTrees, setNearbyTrees] = useState<{
+    tree: TreeRecord;
+    distance: number;
+    cropUri: string;
+  }[]>([]);
+  const nearbyListRef = useRef<FlatList<any> | null>(null);
+  const [carouselWidth, setCarouselWidth] = useState(imageDisplayWidth);
   const router = useRouter();
+
+  type NearbyItem = { tree: TreeRecord; distance: number; cropUri: string };
+
+  const navigateToTree = useCallback((treeId: number) => {
+    router.push(`/tree-detail/${treeId}`);
+  }, [router]);
+
+  const NearbyCard = memo(function NearbyCard({
+    id,
+    distance,
+    imageUri,
+    onPress,
+    width,
+  }: { id: number; distance: number; imageUri: string; onPress: (id: number) => void; width: number }) {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => onPress(id)}
+        style={[styles.nearbyCard, { width }]}
+      >
+        <Image source={{ uri: imageUri }} style={styles.nearbyImage} resizeMode="contain" />
+        <View style={styles.distanceBadge}>
+          <Text style={styles.distanceText}>{distance} м</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  });
+
+  const renderNearbyItem = useCallback(({ item }: { item: NearbyItem }) => (
+    <NearbyCard
+      id={item.tree.id!}
+      distance={Math.round(item.distance)}
+      imageUri={item.cropUri}
+      onPress={navigateToTree}
+      width={carouselWidth}
+    />
+  ), [navigateToTree, carouselWidth]);
 
   useEffect(() => {
     if (id) {
@@ -78,6 +125,8 @@ export default function TreeDetailScreen() {
         
         // Load all trees for map display
         await loadMapTrees();
+        // Load nearby trees if location is available
+        await loadNearbyTrees(treeData);
       } else {
         console.log('Tree not found for id:', id);
         Alert.alert('Ошибка', 'Дерево не найдено. Возможно, оно было удалено.');
@@ -103,6 +152,66 @@ export default function TreeDetailScreen() {
       setMapLoading(false);
     }
   };
+
+  const ensureCropForTree = async (t: TreeRecord): Promise<string> => {
+    if (t.cropPath && t.cropPath.length > 0) {
+      return t.cropPath;
+    }
+    try {
+      const cropPath = await cropTreeWithDimensions(t.imageUri, t.boundingBox, String(t.id!));
+      await treeDatabase.updateTree(t.id!, { cropPath });
+      return cropPath;
+    } catch (e) {
+      console.log('Failed to crop tree, falling back to imageUri:', t.id, e);
+      return t.imageUri;
+    }
+  };
+
+  const loadNearbyTrees = async (baseTree: TreeRecord | null) => {
+    try {
+      if (!baseTree || !baseTree.latitude || !baseTree.longitude) {
+        setNearbyTrees([]);
+        return;
+      }
+      setNearbyLoading(true);
+      const all = await treeDatabase.getAllTrees();
+      const candidates = all.filter(t => t.id !== baseTree.id && t.latitude != null && t.longitude != null);
+      // Compute distance and filter <= 500m
+      const withDistance = candidates.map(t => ({
+        tree: t,
+        distance: calculateDistanceMeters(baseTree.latitude!, baseTree.longitude!, t.latitude!, t.longitude!),
+      })).filter(x => x.distance <= 500);
+      withDistance.sort((a, b) => a.distance - b.distance);
+
+      const result: { tree: TreeRecord; distance: number; cropUri: string }[] = [];
+      for (const item of withDistance) {
+        const cropUri = await ensureCropForTree(item.tree);
+        result.push({ ...item, cropUri });
+      }
+      setNearbyTrees(result);
+      setNearbyIndex(0);
+    } catch (err) {
+      console.error('Error loading nearby trees:', err);
+      setNearbyTrees([]);
+    } finally {
+      setNearbyLoading(false);
+    }
+  };
+
+  const goToNearbyIndex = (index: number) => {
+    if (!nearbyListRef.current) return;
+    const clamped = Math.max(0, Math.min(index, nearbyTrees.length - 1));
+    nearbyListRef.current.scrollToIndex({ index: clamped, animated: true });
+    setNearbyIndex(clamped);
+  };
+
+  const onViewRef = useRef(({ viewableItems }: any) => {
+    if (viewableItems && viewableItems.length > 0) {
+      const idx = viewableItems[0].index ?? 0;
+      if (idx !== nearbyIndex) setNearbyIndex(idx);
+    }
+  });
+  const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 60 });
 
 
   const copyCoordinates = () => {
@@ -603,102 +712,6 @@ export default function TreeDetailScreen() {
           )}
         </View>
 
-        {/* Location Map Section */}
-        <View style={styles.mapContainer}>
-          <View style={styles.mapHeader}>
-            <Text style={styles.sectionTitle}>Местоположение</Text>
-            <TouchableOpacity
-              style={styles.editLocationButton}
-              onPress={() => router.push(`/edit-location/${tree.id}`)}
-            >
-              <Text style={styles.editLocationButtonText}>
-                {tree.latitude && tree.longitude ? 'Изменить' : 'Добавить'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          
-          {tree.latitude && tree.longitude ? (
-            <>
-              {/* GPS Coordinates Display */}
-              <View style={styles.coordinatesContainer}>
-                <View style={styles.coordinatesHeader}>
-                  <Text style={styles.coordinatesTitle}>GPS координаты</Text>
-                  <TouchableOpacity
-                    style={styles.copyButton}
-                    onPress={copyCoordinates}
-                  >
-                    <Copy size={16} color="#3b82f6" />
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.coordinateRow}>
-                  <Text style={styles.coordinateLabel}>Широта:</Text>
-                  <Text style={styles.coordinateValue}>{tree.latitude.toFixed(6)}°</Text>
-                </View>
-                <View style={styles.coordinateRow}>
-                  <Text style={styles.coordinateLabel}>Долгота:</Text>
-                  <Text style={styles.coordinateValue}>{tree.longitude.toFixed(6)}°</Text>
-                </View>
-              </View>
-              
-              <View style={styles.mapWrapper}>
-                {mapLoading ? (
-                  <View style={styles.mapLoadingContainer}>
-                    <Text style={styles.mapLoadingText}>Загрузка карты...</Text>
-                  </View>
-                ) : (
-                  <Yamap
-                    style={styles.map}
-                    initialRegion={calculateTreeDetailMapRegion(tree)}
-                    logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
-                    logoPadding={{ horizontal: 16, vertical: 16 }}
-                    mapStyle={getMapStyle()}
-                    onMapLoaded={() => {
-                      // Map loaded successfully
-                    }}
-                  >
-                    {mapTrees.map((mapTree) => {
-                      const isCurrentTree = mapTree.id === tree.id;
-                      // Get the appropriate marker icon with selection state
-                      const markerIcon = getMarkerIconWithSelection(mapTree, mapTree.hasDefects, isCurrentTree);
-                      
-                      return (
-                        <Marker
-                          key={mapTree.id}
-                          point={{
-                            lat: mapTree.latitude!,
-                            lon: mapTree.longitude!,
-                          }}
-                          source={markerIcon}
-                          scale={isCurrentTree ? 1.0 : 0.7}
-                          // No onPress handler - trees are not clickable on tree detail page
-                        />
-                      );
-                    })}
-                  </Yamap>
-                )}
-              </View>
-              
-              {/* Delete Location Button */}
-              <TouchableOpacity
-                style={styles.deleteLocationButton}
-                onPress={deleteLocation}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.deleteLocationButtonText}>
-                  Удалить местоположение
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <View style={styles.noLocationContainer}>
-              <Text style={styles.noLocationText}>Информация о местоположении недоступна</Text>
-              <Text style={styles.noLocationSubtext}>
-                GPS координаты не были сохранены для этого дерева
-              </Text>
-            </View>
-          )}
-        </View>
-
         <View style={styles.descriptionContainer}>
           <View style={styles.descriptionHeader}>
             <Text style={styles.sectionTitle}>ИИ Анализ</Text>
@@ -802,6 +815,160 @@ export default function TreeDetailScreen() {
             </View>
           )}
         </View>
+
+        {/* Location Map Section */}
+        <View style={styles.mapContainer}>
+          <View style={styles.mapHeader}>
+            <Text style={styles.sectionTitle}>Местоположение</Text>
+            <TouchableOpacity
+              style={styles.editLocationButton}
+              onPress={() => router.push(`/edit-location/${tree.id}`)}
+            >
+              <Text style={styles.editLocationButtonText}>
+                {tree.latitude && tree.longitude ? 'Изменить' : 'Добавить'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
+          {tree.latitude && tree.longitude ? (
+            <>
+              {/* GPS Coordinates Display */}
+              <View style={styles.coordinatesContainer}>
+                <View style={styles.coordinatesHeader}>
+                  <Text style={styles.coordinatesTitle}>GPS координаты</Text>
+                  <TouchableOpacity
+                    style={styles.copyButton}
+                    onPress={copyCoordinates}
+                  >
+                    <Copy size={16} color="#3b82f6" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.coordinateRow}>
+                  <Text style={styles.coordinateLabel}>Широта:</Text>
+                  <Text style={styles.coordinateValue}>{tree.latitude.toFixed(6)}°</Text>
+                </View>
+                <View style={styles.coordinateRow}>
+                  <Text style={styles.coordinateLabel}>Долгота:</Text>
+                  <Text style={styles.coordinateValue}>{tree.longitude.toFixed(6)}°</Text>
+                </View>
+              </View>
+              
+              <View style={styles.mapWrapper}>
+                {mapLoading ? (
+                  <View style={styles.mapLoadingContainer}>
+                    <Text style={styles.mapLoadingText}>Загрузка карты...</Text>
+                  </View>
+                ) : (
+                  <Yamap
+                    style={styles.map}
+                    initialRegion={calculateTreeDetailMapRegion(tree)}
+                    logoPosition={{ horizontal: 'left', vertical: 'bottom' }}
+                    logoPadding={{ horizontal: 16, vertical: 16 }}
+                    mapStyle={getMapStyle()}
+                    onMapLoaded={() => {
+                      // Map loaded successfully
+                    }}
+                  >
+                    {mapTrees.map((mapTree) => {
+                      const isCurrentTree = mapTree.id === tree.id;
+                      // Get the appropriate marker icon with selection state
+                      const markerIcon = getMarkerIconWithSelection(mapTree, mapTree.hasDefects, isCurrentTree);
+                      
+                      return (
+                        <Marker
+                          key={mapTree.id}
+                          point={{
+                            lat: mapTree.latitude!,
+                            lon: mapTree.longitude!,
+                          }}
+                          source={markerIcon}
+                          scale={isCurrentTree ? 1.0 : 0.7}
+                          // No onPress handler - trees are not clickable on tree detail page
+                        />
+                      );
+                    })}
+                  </Yamap>
+                )}
+              </View>
+              
+              {/* Delete Location Button */}
+              <TouchableOpacity
+                style={styles.deleteLocationButton}
+                onPress={deleteLocation}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.deleteLocationButtonText}>
+                  Удалить местоположение
+                </Text>
+              </TouchableOpacity>
+
+            </>
+          ) : (
+            <View style={styles.noLocationContainer}>
+              <Text style={styles.noLocationText}>Информация о местоположении недоступна</Text>
+              <Text style={styles.noLocationSubtext}>
+                GPS координаты не были сохранены для этого дерева
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Nearby Trees - Separate Block after Location */}
+        {tree.latitude && tree.longitude && (
+          <View style={styles.nearbyContainer}>
+            <View style={styles.nearbyHeader}>
+              <Text style={styles.sectionTitle}>Деревья рядом</Text>
+            </View>
+            {nearbyLoading ? (
+              <View style={styles.nearbyLoading}>
+                <Text style={styles.mapLoadingText}>Загрузка ближайших деревьев...</Text>
+              </View>
+            ) : nearbyTrees.length === 0 ? (
+              <View style={styles.nearbyEmpty}>
+                <Text style={styles.emptyDefectsText}>В радиусе 500 метров нет деревьев.</Text>
+              </View>
+            ) : (
+              <View style={styles.carouselWrapper} onLayout={(e) => setCarouselWidth(e.nativeEvent.layout.width)}>
+                <TouchableOpacity
+                  style={[styles.navButton, { left: 4, opacity: nearbyIndex === 0 ? 0.3 : 1 }]}
+                  onPress={() => goToNearbyIndex(nearbyIndex - 1)}
+                  disabled={nearbyIndex === 0}
+                >
+                  <ChevronLeft size={22} color="#111827" />
+                </TouchableOpacity>
+
+                <FlatList
+                  style={styles.nearbyList}
+                  ref={nearbyListRef}
+                  data={nearbyTrees}
+                  keyExtractor={(item) => String(item.tree.id)}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  initialNumToRender={3}
+                  windowSize={5}
+                  maxToRenderPerBatch={3}
+                  removeClippedSubviews
+                  renderItem={renderNearbyItem}
+                  snapToInterval={carouselWidth}
+                  snapToAlignment="center"
+                  decelerationRate="fast"
+                  onViewableItemsChanged={onViewRef.current}
+                  viewabilityConfig={viewConfigRef.current}
+                  getItemLayout={(_, index) => ({ length: carouselWidth || 1, offset: (carouselWidth || 1) * index, index })}
+                />
+
+                <TouchableOpacity
+                  style={[styles.navButton, { right: 4, opacity: nearbyIndex >= nearbyTrees.length - 1 ? 0.3 : 1 }]}
+                  onPress={() => goToNearbyIndex(nearbyIndex + 1)}
+                  disabled={nearbyIndex >= nearbyTrees.length - 1}
+                >
+                  <ChevronRight size={22} color="#111827" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
 
       </ScrollView>
 
@@ -1083,7 +1250,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
@@ -1091,7 +1258,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
@@ -1383,5 +1550,81 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  nearbyContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  nearbyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  nearbyLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  nearbyEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  carouselWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navButton: {
+    position: 'absolute',
+    zIndex: 2,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 3,
+    top: '45%',
+  },
+  nearbyCard: {
+    width: '100%',
+    height: 220,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  nearbyImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ffffff',
+  },
+  nearbyList: {
+    width: '100%',
+  },
+  distanceBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(17, 24, 39, 0.8)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  distanceText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

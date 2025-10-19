@@ -9,8 +9,8 @@ export interface TreeRecord {
   additionalImages: string[];
   cropPath?: string;
   taxonName?: string;
-  latitude?: number;
-  longitude?: number;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface BoundingBox {
@@ -262,6 +262,11 @@ class TreeDatabase {
       if (updates.taxonName !== undefined) {
         fields.push('taxonName = ?');
         values.push(updates.taxonName);
+      }
+      
+      if (updates.cropPath !== undefined) {
+        fields.push('cropPath = ?');
+        values.push(updates.cropPath);
       }
       
       if (updates.latitude !== undefined) {

@@ -158,6 +158,19 @@ export const getMarkerIconWithSelection = (tree: TreeRecord, hasDefects: boolean
 };
 
 /**
+ * Calculate geodesic distance in meters between two WGS84 coordinates
+ */
+export const calculateDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const R = 6371000; // Earth radius in meters
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+};
+
+/**
  * Calculate map region to show 400x400m area around a specific tree
  * @param tree - Tree with GPS coordinates
  * @returns Map region centered on the tree with appropriate zoom
