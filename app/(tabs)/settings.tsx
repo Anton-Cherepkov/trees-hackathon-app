@@ -235,7 +235,7 @@ export default function SettingsScreen() {
               <View style={[styles.iconContainer, { backgroundColor: '#22c55e' }]}>
                 <Plus size={20} color="#ffffff" />
               </View>
-              <View>
+              <View style={styles.settingItemText}>
                 <Text style={styles.settingItemTitle}>Создать случайные деревья</Text>
                 <Text style={styles.settingItemSubtitle}>
                   Добавить тестовые деревья в базу данных
@@ -249,7 +249,7 @@ export default function SettingsScreen() {
               <View style={[styles.iconContainer, { backgroundColor: '#ef4444' }]}>
                 <Trash2 size={20} color="#ffffff" />
               </View>
-              <View>
+              <View style={styles.settingItemText}>
                 <Text style={styles.settingItemTitle}>Очистить все данные</Text>
                 <Text style={styles.settingItemSubtitle}>
                   Удалить все записи о деревьях навсегда
@@ -267,7 +267,7 @@ export default function SettingsScreen() {
               <View style={[styles.iconContainer, { backgroundColor: '#8b5cf6' }]}>
                 <Info size={20} color="#ffffff" />
               </View>
-              <View>
+              <View style={styles.settingItemText}>
                 <Text style={styles.settingItemTitle}>О программе</Text>
                 <Text style={styles.settingItemSubtitle}>
                   Версия приложения и информация
@@ -367,10 +367,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#e5e7eb',
+    minHeight: 80,
   },
   settingItemLeft: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flex: 1,
   },
   iconContainer: {
     width: 40,
@@ -386,9 +388,17 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 4,
   },
+  settingItemText: {
+    flex: 1,
+    marginRight: 8,
+    flexShrink: 1,
+  },
   settingItemSubtitle: {
     fontSize: 14,
     color: '#6b7280',
+    lineHeight: 18,
+    flexWrap: 'wrap',
+    flexShrink: 1,
   },
   modalOverlay: {
     flex: 1,

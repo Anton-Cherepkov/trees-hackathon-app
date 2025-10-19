@@ -285,16 +285,14 @@ export default function TreeDetectionScreen() {
         console.log('Tree record:', treeRecord);
         console.log('treeDatabase:', treeDatabase);
 
-        // Insert the same tree record 10 times
-        for (let i = 0; i < 10; i++) {
-          await treeDatabase.insertTree(treeRecord);
-          console.log(`Tree ${tree.id} record ${i + 1}/10 saved to database successfully`);
-        }
+        // Insert the tree record once
+        await treeDatabase.insertTree(treeRecord);
+        console.log(`Tree ${tree.id} saved to database successfully`);
       }
 
       Alert.alert(
         'Успешно',
-        `Успешно сохранено ${selectedTrees.length * 10} записей деревьев (${selectedTrees.length} ${selectedTrees.length === 1 ? 'дерево' : selectedTrees.length < 5 ? 'дерева' : 'деревьев'} × 10)!`,
+        `Успешно сохранено ${selectedTrees.length} ${selectedTrees.length === 1 ? 'дерево' : selectedTrees.length < 5 ? 'дерева' : 'деревьев'}!`,
         [
           {
             text: 'ОК',
