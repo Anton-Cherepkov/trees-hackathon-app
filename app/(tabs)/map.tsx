@@ -22,9 +22,6 @@ export default function MapScreen() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [showHexagonView, setShowHexagonView] = useState(false);
   const [currentRegion, setCurrentRegion] = useState<any>(null);
-  const [hexagonCache, setHexagonCache] = useState<HexagonData[] | null>(null);
-  const [isHexagonCacheValid, setIsHexagonCacheValid] = useState(false);
-  const [isFromOtherScreen, setIsFromOtherScreen] = useState(true);
 
   const mapRef = useRef<any>(null);
   const router = useRouter();
@@ -38,10 +35,6 @@ export default function MapScreen() {
   useFocusEffect(
     React.useCallback(() => {
       loadTrees();
-      // Mark that user is coming from another screen
-      console.log('Screen focused - user coming from another screen');
-      setIsFromOtherScreen(true);
-      setIsHexagonCacheValid(false);
     }, [])
   );
 
@@ -72,26 +65,11 @@ export default function MapScreen() {
     }
   };
 
-  const loadHexagonData = async (forceRecalculate = false) => {
+  const loadHexagonData = async () => {
     try {
-      // Use cache if available and valid, unless force recalculate or coming from other screen
-      if (hexagonCache && isHexagonCacheValid && !forceRecalculate && !isFromOtherScreen) {
-        console.log('Using cached hexagon data');
-        setHexagonData(hexagonCache);
-        return;
-      }
-
       setLoading(true);
-      console.log('Calculating new hexagon data...', isFromOtherScreen ? '(from other screen)' : '(force recalculate)');
       const data = await processHexagonData();
-      
-      // Cache the calculated data
-      setHexagonCache(data);
-      setIsHexagonCacheValid(true);
       setHexagonData(data);
-      
-      // Reset the flag after calculation
-      setIsFromOtherScreen(false);
     } catch (error) {
       console.error('Error loading hexagon data:', error);
       Alert.alert(
@@ -180,8 +158,7 @@ export default function MapScreen() {
     } else {
       // Save current region before switching
       saveCurrentRegion(async () => {
-        console.log('Switching from tree to hexagon view - using cache if available');
-        // Load hexagon data (will use cache if available, unless coming from other screen)
+        console.log('Switching from tree to hexagon view');
         await loadHexagonData();
         setShowHexagonView(true);
       });
@@ -197,8 +174,8 @@ export default function MapScreen() {
   };
 
   const handleRefreshHexagons = async () => {
-    // Force recalculate hexagon data
-    await loadHexagonData(true);
+    // Recalculate hexagon data
+    await loadHexagonData();
   };
 
   const EmptyState = () => (
